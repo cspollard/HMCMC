@@ -4,27 +4,34 @@ import GSL.Random.Dist
 import System.Random (RandomGen, Random(..), mkStdGen)
 
 
-type Sample g a b = (a, g) -> (b, g)
+type Sample g a = (a, g) -> (Double, g)
 
 
-sampleUniform :: RandomGen g => Sample g (Double, Double) Double
+sampleUniform :: RandomGen g => Sample g (Double, Double)
 sampleUniform ((mn, mx), gen) = (x', gen')
     where
         (x, gen') = random gen
         x' = (x * (mx - mn)) + mn
 
+sampleGaussian :: RandomGen g => Sample g (Double, Double)
+sampleGaussian = sampleCDFInv gaussianCDFInv
+
 
 -- TODO
 -- this only works out to 12 sigma.
-sampleGaussian :: RandomGen g => Sample g (Double, Double) Double
-sampleGaussian ((mu, sigma), gen) = (x', gen')
+sampleCDFInv :: RandomGen g => (a -> Double -> Double) -> Sample g a
+sampleCDFInv cdfInv (params, gen) = (x', gen')
     where 
-        (x, gen') = sampleUniform ((-12, 12), gen)
-        x' = gaussianPInv 1.0 x * sigma + mu
+        (x, gen') = sampleUniform ((0, 1), gen)
+        x' = cdfInv params x
 
 
-sampleMany :: RandomGen g => ((a, g) -> (b, g)) -> (a, g) -> [b]
-sampleMany f (a, g) = let (b, g') = f (a, g) in b : sampleMany f (a, g')
+gaussianCDFInv :: (Double, Double) -> Double -> Double
+gaussianCDFInv (mu, sigma) x = gaussianPInv x 1.0 * sigma + mu
+
+
+sampleForever :: RandomGen g => Sample g a -> (a, g) -> [Double]
+sampleForever f (a, g) = let (b, g') = f (a, g) in b : sampleForever f (a, g')
 
 
 gaussianPdfMuSigma :: Double -> Double -> Double -> Double
@@ -53,8 +60,8 @@ iterateM n f a = f a >>= iterateM (n-1) f
 
 
 main :: IO ()
--- main = mapM_ print . take 100 $ sampleMany sampleGaussian ((15, 15), mkStdGen 0)
-main = mapM_ print . take 1000000 $ sampleMany sampleUniform ((-15, 15), mkStdGen 0)
+main = mapM_ print . take 10000 $ sampleForever sampleGaussian ((10, 0.55), mkStdGen 0)
+-- main = mapM_ print . take 1000000 $ sampleForever sampleUniform ((-15, 15), mkStdGen 0)
 
 {-
     rng <- newRNG mt19937
