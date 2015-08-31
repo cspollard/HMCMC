@@ -1,6 +1,6 @@
 module Main where
 
-import GSL.Random.Dist
+import qualified GSL.Random.Dist as D
 import System.Random (RandomGen, Random(..), mkStdGen)
 import Control.Monad.Trans.State.Lazy
 
@@ -29,15 +29,15 @@ sampleCDFInv cdfInv (params, gen) = (x', gen')
 
 
 gaussianCDFInv :: (Double, Double) -> Double -> Double
-gaussianCDFInv (mu, sigma) x = gaussianPInv x 1.0 * sigma + mu
+gaussianCDFInv (mu, sigma) x = D.gaussianPInv x 1.0 * sigma + mu
 
 
 sampleForever :: RandomGen g => Sample g a -> (a, g) -> [Double]
 sampleForever f (a, g) = let (b, g') = f (a, g) in b : sampleForever f (a, g')
 
 
-gaussianPdfMuSigma :: Double -> Double -> Double -> Double
-gaussianPdfMuSigma mu sigma x = ugaussianPdf $ (x - mu) / sigma
+gaussianPdf :: (Double, Double) -> Double -> Double
+gaussianPdf (mu, sigma) x = D.ugaussianPdf $ (x - mu) / sigma
 
 
 -- infinite iteration of Stateful computations
@@ -58,14 +58,17 @@ runMCMC propose prob (ps, gen) =
 
 
 main :: IO ()
-main = mapM_ (print . head) . take 999999 $ iterateS (testState [1]) ([0], mkStdGen 0)
+main = mapM_ (print . head) . take 999999 $ iterateS (testPoissonState [1, 1]) ([1, 1], mkStdGen 0)
     where
 
         guassianProb :: [(Double, Double)] -> [Double] -> Double
-        guassianProb musigmas ps = product $ zipWith (\x (m, s) -> gaussianPdfMuSigma m s x) ps musigmas
+        guassianProb musigmas = product . zipWith gaussianPdf musigmas
 
         circleProb :: Double -> [Double] -> Double
         circleProb radius xs = if (sum . map (\x -> x*x)) xs > radius then 0 else 1
+
+        poissonProb :: [Int] -> [Double] -> Double
+        poissonProb mus = product . zipWith D.poissonPdf mus
 
         -- TODO
         -- all have a gaussian proposal distribution of width 1
@@ -78,5 +81,8 @@ main = mapM_ (print . head) . take 999999 $ iterateS (testState [1]) ([0], mkStd
         testProp _ _ = undefined
 
         testState :: RandomGen g => [Double] -> RandomWalk g [Double]
-        testState mus = state $ runMCMC (testProp mus) (circleProb 1)
+        testState sigmas = state $ runMCMC (testProp sigmas) (circleProb 1)
         -- testState = state $ runMCMC testProp (gaussianProb [(0, 1), (10, 4)])
+
+        testPoissonState :: RandomGen g => [Double] -> RandomWalk g [Double]
+        testPoissonState sigmas = state $ runMCMC (testProp sigmas) (poissonProb [2, 10])
