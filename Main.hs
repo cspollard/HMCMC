@@ -2,10 +2,14 @@ module Main where
 
 import GSL.Random.Dist
 import System.Random (RandomGen, Random(..), mkStdGen)
+import Control.Monad.Trans.State.Lazy
 
 
 type Sample g a = (a, g) -> (Double, g)
 
+-- a RandomWalk computes the next state based on the current state and
+-- the state of the random number generator.
+type RandomWalk g a = State (a, g) a
 
 sampleUniform :: RandomGen g => Sample g (Double, Double)
 sampleUniform ((mn, mx), gen) = (x', gen')
@@ -17,8 +21,6 @@ sampleGaussian :: RandomGen g => Sample g (Double, Double)
 sampleGaussian = sampleCDFInv gaussianCDFInv
 
 
--- TODO
--- this only works out to 12 sigma.
 sampleCDFInv :: RandomGen g => (a -> Double -> Double) -> Sample g a
 sampleCDFInv cdfInv (params, gen) = (x', gen')
     where 
@@ -38,32 +40,43 @@ gaussianPdfMuSigma :: Double -> Double -> Double -> Double
 gaussianPdfMuSigma mu sigma x = ugaussianPdf $ (x - mu) / sigma
 
 
-{-
-mcmc :: RandomGen g => (a, g) -> (a, g)
-mcmc (x, g) = 
-    where
-        dx = sampleGaussianMuSigma gen 0 0.1
-        let alpha = gaussianPdfMuSigma 0 1 (x+dx) / gaussianPdfMuSigma 0 1 x
-        n <- getFlat gen 0 1
-
-        if alpha > n
-            then return $ (x+dx) : xs
-            else return $ x : xs
-
-mcmc _ [] = return []
+-- infinite iteration of Stateful computations
+iterateS :: State s a -> s -> [a]
+iterateS st s = let (v, s') = runState st s in v : iterateS st s'
 
 
-iterateM :: Monad m => Int -> (a -> m a) -> a -> m a
-iterateM 0 _ a = return a
-iterateM n f a = f a >>= iterateM (n-1) f
--}
+runMCMC :: RandomGen g => ((a, g) -> (a, g)) -> (a -> Double) -> (a, g) -> (a, (a, g))
+runMCMC propose prob (ps, gen) =
+             if probPropose / probCurr > u
+                then (ps', (ps', gen''))
+                else (ps, (ps, gen''))
+            where
+                (ps', gen') = propose (ps, gen) 
+                (u, gen'') = sampleUniform ((0, 1), gen')
+                probCurr = prob ps
+                probPropose = prob ps'
 
 
 main :: IO ()
-main = mapM_ print . take 10000 $ sampleForever sampleGaussian ((10, 0.55), mkStdGen 0)
--- main = mapM_ print . take 1000000 $ sampleForever sampleUniform ((-15, 15), mkStdGen 0)
+main = mapM_ (print . head) . take 999999 $ iterateS (testState [1]) ([0], mkStdGen 0)
+    where
 
-{-
-    rng <- newRNG mt19937
-    mapM_ print =<< iterateM 1000000 (mcmc rng) [0]
--}
+        guassianProb :: [(Double, Double)] -> [Double] -> Double
+        guassianProb musigmas ps = product $ zipWith (\x (m, s) -> gaussianPdfMuSigma m s x) ps musigmas
+
+        circleProb :: Double -> [Double] -> Double
+        circleProb radius xs = if (sum . map (\x -> x*x)) xs > radius then 0 else 1
+
+        -- TODO
+        -- all have a gaussian proposal distribution of width 1
+        testProp :: RandomGen g => [Double] -> ([Double], g) -> ([Double], g)
+        testProp [] ([], gen) = ([], gen)
+        testProp (mu:mus) (x:xs, gen) =
+            let (x', gen'') = sampleGaussian ((x, mu), gen') in (x':xs', gen'')
+            where
+                (xs', gen') = testProp mus (xs, gen) 
+        testProp _ _ = undefined
+
+        testState :: RandomGen g => [Double] -> RandomWalk g [Double]
+        testState mus = state $ runMCMC (testProp mus) (circleProb 1)
+        -- testState = state $ runMCMC testProp (gaussianProb [(0, 1), (10, 4)])
