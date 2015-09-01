@@ -18,11 +18,11 @@ sampleUniform ((mn, mx), gen) = (x', gen')
         x' = (x * (mx - mn)) + mn
 
 sampleGaussian :: RandomGen g => Sample g (Double, Double)
-sampleGaussian = sampleCDFInv gaussianCDFInv
+sampleGaussian = sample gaussianCDFInv
 
 
-sampleCDFInv :: RandomGen g => (a -> Double -> Double) -> Sample g a
-sampleCDFInv cdfInv (params, gen) = (x', gen')
+sample :: RandomGen g => (a -> Double -> Double) -> Sample g a
+sample cdfInv (params, gen) = (x', gen')
     where 
         (x, gen') = sampleUniform ((0, 1), gen)
         x' = cdfInv params x
@@ -56,6 +56,8 @@ runMCMC propose prob (ps, gen) =
                 probCurr = prob ps
                 probPropose = prob ps'
 
+mcmc :: RandomGen g => ((a, g) -> (a, g)) -> (a -> Double) -> RandomWalk g a
+mcmc propose prob = state $ runMCMC propose prob
 
 main :: IO ()
 main = mapM_ (print . head) . take 999999 $ iterateS (testPoissonState [1, 1]) ([1, 1], mkStdGen 0)
@@ -81,8 +83,8 @@ main = mapM_ (print . head) . take 999999 $ iterateS (testPoissonState [1, 1]) (
         testProp _ _ = undefined
 
         testState :: RandomGen g => [Double] -> RandomWalk g [Double]
-        testState sigmas = state $ runMCMC (testProp sigmas) (circleProb 1)
+        testState sigmas = mcmc (testProp sigmas) (circleProb 1)
         -- testState = state $ runMCMC testProp (gaussianProb [(0, 1), (10, 4)])
 
         testPoissonState :: RandomGen g => [Double] -> RandomWalk g [Double]
-        testPoissonState sigmas = state $ runMCMC (testProp sigmas) (poissonProb [2, 10])
+        testPoissonState sigmas = mcmc (testProp sigmas) (poissonProb [2, 10])
