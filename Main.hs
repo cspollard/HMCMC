@@ -1,90 +1,51 @@
 module Main where
 
-import qualified GSL.Random.Dist as D
-import System.Random (RandomGen, Random(..), mkStdGen)
-import Control.Monad.Trans.State.Lazy
+import System.Random
 
+import Data.HMCMC
+import Data.HMCMC.Dist
+import Data.HMCMC.Statistics
 
-type Sample g a = (a, g) -> (Double, g)
+dataHist = [10, 11, 9, 7, 6, 4, 1, 0, 1, 0]
 
--- a RandomWalk computes the next state based on the current state and
--- the state of the random number generator.
-type RandomWalk g a = State (a, g) a
+mcHist1 = map (*0.75) [7.5, 7.3, 6.0, 4.3, 3.5, 0.9, 0.7, 0.4, 0.1, 0.05]
+mcHist2 = [3.1, 3.3, 3.2, 2.6, 2.4, 1.9, 1.6, 0.9, 0.3, 0.1]
 
-sampleUniform :: RandomGen g => Sample g (Double, Double)
-sampleUniform ((mn, mx), gen) = (x', gen')
+mcNormProps ((x, y), gen) = ((x', y'), gen'')
     where
-        (x, gen') = random gen
-        x' = (x * (mx - mn)) + mn
+        (x', gen') = sampleGaussian ((x, 0.05), gen)
+        (y', gen'') = sampleGaussian ((y, 0.05), gen')
 
-sampleGaussian :: RandomGen g => Sample g (Double, Double)
-sampleGaussian = sample gaussianCDFInv
+tempProb :: (Double, Double) -> Double
+tempProb (x, y) = poisLH * normLH
+    where
+        mcHist1Normed = map (*x) mcHist1
+        mcHist2Normed = map (*y) mcHist2
 
+        -- the poisson likelihood of the normed mc bkgs given the data
+        -- histogram
+        poisLH = poissonProb (zipWith (+) mcHist1Normed mcHist2Normed) dataHist
 
-sample :: RandomGen g => (a -> Double -> Double) -> Sample g a
-sample cdfInv (params, gen) = (x', gen')
-    where 
-        (x, gen') = sampleUniform ((0, 1), gen)
-        x' = cdfInv params x
-
-
-gaussianCDFInv :: (Double, Double) -> Double -> Double
-gaussianCDFInv (mu, sigma) x = D.gaussianPInv x 1.0 * sigma + mu
-
-
-sampleForever :: RandomGen g => Sample g a -> (a, g) -> [Double]
-sampleForever f (a, g) = let (b, g') = f (a, g) in b : sampleForever f (a, g')
+        -- the probability of the normalization give the mc priors
+        -- normLH = gaussianProb [(1, 0.2), (1, 0.1)] [x, y]
+        normLH = flatProb [(0, 3), (0, 2)] [x, y]
 
 
-gaussianPdf :: (Double, Double) -> Double -> Double
-gaussianPdf (mu, sigma) x = D.ugaussianPdf $ (x - mu) / sigma
+gaussProp :: RandomGen g => [Double] -> ([Double], g) -> ([Double], g)
+gaussProp [] ([], gen) = ([], gen)
+gaussProp (mu:mus) (x:xs, gen) =
+    let (x', gen'') = sampleGaussian ((x, mu), gen') in (x':xs', gen'')
+    where
+        (xs', gen') = gaussProp mus (xs, gen) 
+gaussProm _ _ = undefined
 
 
--- infinite iteration of Stateful computations
-iterateS :: State s a -> s -> [a]
-iterateS st s = let (v, s') = runState st s in v : iterateS st s'
-
-
-runMCMC :: RandomGen g => ((a, g) -> (a, g)) -> (a -> Double) -> (a, g) -> (a, (a, g))
-runMCMC propose prob (ps, gen) =
-             if probPropose / probCurr > u
-                then (ps', (ps', gen''))
-                else (ps, (ps, gen''))
-            where
-                (ps', gen') = propose (ps, gen) 
-                (u, gen'') = sampleUniform ((0, 1), gen')
-                probCurr = prob ps
-                probPropose = prob ps'
-
-mcmc :: RandomGen g => ((a, g) -> (a, g)) -> (a -> Double) -> RandomWalk g a
-mcmc propose prob = state $ runMCMC propose prob
+appMany :: [a -> b] -> a -> [b]
+appMany fs x = ($ x) `fmap` fs
 
 main :: IO ()
-main = mapM_ (print . head) . take 999999 $ iterateS (testPoissonState [1, 1]) ([1, 1], mkStdGen 0)
+-- main = print . appMany [mean, mode, median, stddev] . map fst . take 999999 $ iterateS testState ((1, 1), mkStdGen 0)
+main = mapM_ (print . snd) . take 999999 $ iterateS testState ((1, 1), mkStdGen 0)
     where
-
-        guassianProb :: [(Double, Double)] -> [Double] -> Double
-        guassianProb musigmas = product . zipWith gaussianPdf musigmas
-
-        circleProb :: Double -> [Double] -> Double
-        circleProb radius xs = if (sum . map (\x -> x*x)) xs > radius then 0 else 1
-
-        poissonProb :: [Int] -> [Double] -> Double
-        poissonProb mus = product . zipWith D.poissonPdf mus
-
-        -- TODO
-        -- all have a gaussian proposal distribution of width 1
-        testProp :: RandomGen g => [Double] -> ([Double], g) -> ([Double], g)
-        testProp [] ([], gen) = ([], gen)
-        testProp (mu:mus) (x:xs, gen) =
-            let (x', gen'') = sampleGaussian ((x, mu), gen') in (x':xs', gen'')
-            where
-                (xs', gen') = testProp mus (xs, gen) 
-        testProp _ _ = undefined
-
-        testState :: RandomGen g => [Double] -> RandomWalk g [Double]
-        testState sigmas = mcmc (testProp sigmas) (circleProb 1)
-        -- testState = state $ runMCMC testProp (gaussianProb [(0, 1), (10, 4)])
-
-        testPoissonState :: RandomGen g => [Double] -> RandomWalk g [Double]
-        testPoissonState sigmas = mcmc (testProp sigmas) (poissonProb [2, 10])
+        testState :: RandomGen g => RandomWalk g (Double, Double)
+        testState = mcmc mcNormProps tempProb
