@@ -39,8 +39,11 @@ gaussianProb musigmas = product . zipWith gaussianPdf musigmas
 circleProb :: Double -> [Double] -> Double
 circleProb radius xs = if (sum . map (\x -> x*x)) xs > radius then 0 else 1
 
-poissonProb :: [Double] -> [Int] -> Double
-poissonProb mus = product . zipWith (flip D.poissonPdf) mus
+poissonProbs :: [Double] -> [Int] -> Double
+poissonProbs mus = product . zipWith poissonProb mus
+
+poissonProb :: Double -> Int -> Double
+poissonProb mu x = flip D.poissonPdf mu x
 
 
 flatProb :: [(Double, Double)] -> [Double] -> Double
