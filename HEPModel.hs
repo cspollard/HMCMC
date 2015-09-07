@@ -29,6 +29,7 @@ type Dataset = Map RegionName (Hist Int)
 totalPrediction :: Model -> Process
 totalPrediction = fmap (sumHists . M.elems)
 
+
 -- the poisson likelihood of a model given the input data
 modelPoissonLH :: Dataset -> Model -> Double
-modelPoissonLH ds m = product $ zipWith poissonProbs (M.elems (totalPrediction m)) (M.elems ds)
+modelPoissonLH ds m = product . M.elems $ M.intersectionWith poissonProbs (totalPrediction m) ds
