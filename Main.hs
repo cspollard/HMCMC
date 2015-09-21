@@ -6,34 +6,48 @@ import Data.HMCMC
 import Data.HMCMC.Dist
 
 import HEPModel
-import Data.Map (singleton, fromList)
+import qualified Data.Map as M
 
-dataSet = singleton "SR" [10, 11, 9, 7, 6, 4, 1, 0, 1, 0]
+import qualified Data.ByteString.Lazy as BS
+import Data.Aeson
 
-predMC = fromList [("MC1", singleton "SR" $ map (*0.5) [7.5, 7.3, 6.0, 4.3, 3.5, 0.9, 0.7, 0.4, 0.1, 0.05]),
-    ("MC2", singleton "SR" [3.1, 3.3, 3.2, 2.6, 2.4, 1.9, 1.6, 0.9, 0.3, 0.1])]
+import Data.Maybe (fromJust)
+import Data.List (isInfixOf)
 
-mc1Norm = procNormParam (\x -> if x < 0 then 0.0 else gaussianPdf (0.3, 1.0) x) "MC1"
-mc2Norm = procNormParam (\x -> if x < 0 then 0.0 else gaussianPdf (0.3, 1.0) x) "MC2"
+bkgNorm :: String -> HEPModelParam
+bkgNorm = procNormParam (\x -> if x < 0 then 0.0 else gaussianPdf (1.0, 0.3) x)
 
+
+sigNorm :: String -> HEPModelParam
+sigNorm = procNormParam (\x -> if x < 0 || x > 1 then 0.0 else 1)
 
 
 gaussProps :: RandomGen g => [Double] -> ([Double], g) -> ([Double], g)
 gaussProps [] ([], gen) = ([], gen)
-gaussProps (mu:mus) (x:xs, gen) =
-    let (x', gen'') = sampleGaussian ((x, mu), gen') in (x':xs', gen'')
+gaussProps (sigma:sigmas) (x:xs, gen) =
+    let (x', gen'') = sampleGaussian ((x, sigma), gen') in (x':xs', gen'')
     where
-        (xs', gen') = gaussProps mus (xs, gen) 
+        (xs', gen') = gaussProps sigmas (xs, gen) 
 gaussProps _ _ = undefined
 
 
 appMany :: [a -> b] -> a -> [b]
 appMany fs x = ($ x) `fmap` fs
 
+every n xs = case drop (n-1) xs of
+                (y:ys) -> y : every n ys
+                [] -> []
+
+
 main :: IO ()
 -- main = print . appMany [mean, mode, median, stddev] . map fst . take 999999 $ iterateS testState ((1, 1), mkStdGen 0)
-main = mapM_ (\xs -> mapM_ (\x -> putStr (show x) >> putChar ' ') xs >> putChar '\n') . take 999999 $ iterateS testState ([1, 1], mkStdGen 0)
-    where
-        testState :: RandomGen g => RandomWalk g [Double]
-        testState = mcmc (gaussProps [0.05, 0.05])
-                        (modelLH dataSet predMC [mc1Norm, mc2Norm])
+main = do
+    mc <- fmap fromJust (decode `fmap` BS.getContents :: IO (Maybe HEPPrediction))
+    let nprocs = M.size mc
+    let (bkgs, sigs) = M.partitionWithKey (\k _ -> not $ isInfixOf "HVT" k) mc
+    -- remove HVT from data sample
+    let ds = expectedData bkgs
+    let params = fmap sigNorm (M.keys sigs) ++ (fmap bkgNorm $ M.keys bkgs)
+    let testState = mcmc (gaussProps $ replicate nprocs 0.05) (modelLH ds mc params)
+
+    mapM_ (\xs -> mapM_ (\x -> putStr (show x) >> putChar ' ') xs >> putChar '\n') . every 100 . take 999999 $ iterateS testState (0 : replicate (nprocs-1) 1.0, mkStdGen 0)

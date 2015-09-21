@@ -4,6 +4,8 @@ import Data.Map (Map)
 import qualified Data.Map as M
 import Data.HMCMC.Dist (poissonProbs)
 
+import Debug.Trace
+
 -- simple histogram type
 type Hist a = [a]
 
@@ -42,9 +44,11 @@ data HEPModelParam = HEPModelParam {
 alterProc :: (Hist Double -> Hist Double) -> String -> HEPPrediction -> HEPPrediction
 alterProc f = M.adjust (fmap f)
 
+
 -- process normalization HEPModelParam
 procNormParam :: (Double -> Double) -> String -> HEPModelParam
 procNormParam prior name = HEPModelParam prior (\x -> alterProc (scaleH x) name)
+
 
 procShapeParam :: Hist Double -> (Double -> Double) -> String -> HEPModelParam
 procShapeParam hshape prior name = HEPModelParam prior (\x -> alterProc (mulH (scaleH x hshape)) name)
@@ -69,5 +73,3 @@ modelLH ds hpred hparams params = priorLH * poissLH
         priorLH = product $ zipWith hnpPriorProb hparams params
         hpred' = foldr ($) hpred (zipWith hnpAlter hparams params)
         poissLH = modelPoissonLH ds hpred'
-
-

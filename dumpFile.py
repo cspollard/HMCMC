@@ -16,14 +16,15 @@ regions = [
 def main(fname, norm):
     fin = ROOT.TFile.Open(fname)
 
-    dtmp = {}
+    dmc = {}
     for r in regions:
         sbkg = fin.Get(r + "/Nominal/bkg_vh_m")
         hs = sbkg.GetHists()
 
+
         ssig = fin.Get(r + "/Nominal/sig_vh_m")
         for h in ssig.GetHists():
-            if "2000" in h.GetName():
+            if "1600" in h.GetName():
                 hs.append(h)
                 break
             else:
@@ -32,32 +33,31 @@ def main(fname, norm):
             continue
 
         map(lambda h: h.Scale(norm), hs)
-
-        dtmp[r] = map(toList, hs)
+        dmc[r] = map(toList, hs)
 
         continue
 
-    ddtmp = {}
-    for reg, procHists in dtmp.iteritems():
+    ddmc = {}
+    for reg, procHists in dmc.iteritems():
         for (proc, h) in procHists:
-            if proc not in ddtmp:
-                ddtmp[proc] = {reg : h}
+            if proc not in ddmc:
+                ddmc[proc] = {reg : h}
             else:
-                ddtmp[proc][reg] = h
+                ddmc[proc][reg] = h
 
             continue
         continue
 
 
-    print json.dumps(ddtmp)
+    print json.dumps(ddmc)
 
     return
 
 
 def toList(h):
     return (h.GetTitle(),
-            [h.GetBinContent(iBin) for iBin in range(1,
-                h.GetNbinsX()+2)])
+            [h.GetBinContent(iBin) + 1e-10
+                for iBin in range(1, h.GetNbinsX()+2)])
 
 if __name__ == "__main__":
     main(myargv[1], float(myargv[2]))
