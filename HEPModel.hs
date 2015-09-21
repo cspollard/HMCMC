@@ -54,6 +54,10 @@ totalPrediction :: HEPPrediction -> Process
 totalPrediction = foldr1 (M.intersectionWith addH) . M.elems
 
 
+expectedData :: HEPPrediction -> Dataset
+expectedData = fmap (fmap round) . totalPrediction
+
+
 -- the poisson likelihood of a model given the input data
 modelPoissonLH :: Dataset -> HEPPrediction -> Double
 modelPoissonLH ds m = product . M.elems $ M.intersectionWith poissonProbs (totalPrediction m) ds
