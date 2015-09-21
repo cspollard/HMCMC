@@ -14,20 +14,30 @@ type Hist a = [a]
 sumHists :: Num a => [Hist a] -> Hist a
 sumHists = foldr1 (zipWith (+))
 
--- a sample's normalization is consistent across regions
+-- a process's normalization is consistent across regions
 type Process = Map RegionName (Hist Double)
 
 type Region = Map ProcessName (Hist Double)
 
--- a variation alters a model in some particular way.
-type Variation = Double -> Model -> Model
 
-type Model = Map RegionName Region
+data SystematicVariation =
+    | Normalization Map RegionName Region -> 
 
 type Dataset = Map RegionName (Hist Int)
 
+-- HEPModel a takes a map of regions, a set of parameters
+type HEPModel a = Map RegionName Region -> a -> Double
+
+-- a ModelParameter alters a model in some particular way and has a prior
+-- distribution in its parameter of type a
+data ModelParameter a = ModelParameter {
+    alter :: Model -> a -> Model,
+    priorProb :: a -> Double
+}
+
+
 totalPrediction :: Model -> Process
-totalPrediction = fmap (sumHists . M.elems)
+totalPrediction = fmap (sumHists . M.elems) . regions
 
 
 -- the poisson likelihood of a model given the input data
