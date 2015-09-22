@@ -43,11 +43,15 @@ main :: IO ()
 -- main = print . appMany [mean, mode, median, stddev] . map fst . take 999999 $ iterateS testState ((1, 1), mkStdGen 0)
 main = do
     mc <- fmap fromJust (decode `fmap` BS.getContents :: IO (Maybe HEPPrediction))
-    let nprocs = M.size mc
     let (bkgs, sigs) = M.partitionWithKey (\k _ -> not $ isInfixOf "HVT" k) mc
+    let nbkg = M.size bkgs
+    let nsig = M.size sigs
     -- remove HVT from data sample
     let ds = expectedData bkgs
     let params = fmap sigNorm (M.keys sigs) ++ (fmap bkgNorm $ M.keys bkgs)
-    let testState = mcmc (gaussProps $ replicate nprocs 0.05) (modelLH ds mc params)
+    let testState = mcmc (gaussProps $ replicate (nbkg+nsig) 0.01) (modelLH ds mc params)
+    let startParams = replicate nsig 0 ++ replicate nbkg 1.0
+    let startProb = modelLH ds mc params startParams
 
-    mapM_ (\xs -> mapM_ (\x -> putStr (show x) >> putChar ' ') xs >> putChar '\n') . every 100 . take 999999 $ iterateS testState (0 : replicate (nprocs-1) 1.0, mkStdGen 0)
+    mapM_ (\xs -> mapM_ (\x -> putStr (show x) >> putChar ' ') xs >> putChar '\n') . take 99999 . every 5 $
+            iterateS testState ((startParams, startProb), mkStdGen 0)

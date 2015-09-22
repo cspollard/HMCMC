@@ -4,8 +4,6 @@ import Data.Map (Map)
 import qualified Data.Map as M
 import Data.HMCMC.Dist (poissonProbs)
 
-import Debug.Trace
-
 -- simple histogram type
 type Hist a = [a]
 
@@ -55,7 +53,7 @@ procShapeParam hshape prior name = HEPModelParam prior (\x -> alterProc (mulH (s
 
 
 totalPrediction :: HEPPrediction -> Process
-totalPrediction = foldr1 (M.intersectionWith addH) . M.elems
+totalPrediction = M.foldr (M.unionWith addH) M.empty
 
 
 expectedData :: HEPPrediction -> Dataset
@@ -64,7 +62,7 @@ expectedData = fmap (fmap round) . totalPrediction
 
 -- the poisson likelihood of a model given the input data
 modelPoissonLH :: Dataset -> HEPPrediction -> Double
-modelPoissonLH ds m = product . M.elems $ M.intersectionWith poissonProbs (totalPrediction m) ds
+modelPoissonLH ds m = M.foldr (*) 1 $ M.intersectionWith poissonProbs (totalPrediction m) ds
 
 
 modelLH :: Dataset -> HEPPrediction -> [HEPModelParam] -> [Double] -> Double
