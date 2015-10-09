@@ -4,6 +4,8 @@ import Data.Map (Map)
 import qualified Data.Map as M
 import Data.HMCMC.Dist (poissonProbs)
 
+import Numeric.GSL.Minimization
+
 -- TODO
 -- IntMaps should be much faster for totalPrediction
 
@@ -36,9 +38,13 @@ type Dataset = Map String (Hist Int)
 -- a HEPModelParam alters a model in some particular way and has a prior
 -- distribution in its parameter of type a
 data HEPModelParam = HEPModelParam {
+    hmpRange :: (Double, Double),
     hmpPriorProb :: Double -> Double,
     hmpAlter :: Double -> HEPPrediction -> HEPPrediction
 }
+
+
+type HEPWorkSpace = (Dataset, HEPPrediction, [HEPModelParam])
 
 
 -- alter a particular process's histograms uniformly by some function
@@ -47,12 +53,12 @@ alterProc f = M.adjust (fmap f)
 
 
 -- process normalization HEPModelParam
-procNormParam :: (Double -> Double) -> String -> HEPModelParam
-procNormParam prior name = HEPModelParam prior (\x -> alterProc (scaleH x) name)
+procNormParam :: Double -> (Double -> Double) -> String -> HEPModelParam
+procNormParam xmax prior name = HEPModelParam (0, xmax) prior (\x -> alterProc (scaleH x) name)
 
 
-procShapeParam :: Hist Double -> (Double -> Double) -> String -> HEPModelParam
-procShapeParam hshape prior name = HEPModelParam prior (\x -> alterProc (mulH (scaleH x hshape)) name)
+procShapeParam :: Hist Double -> (Double, Double) -> (Double -> Double) -> String -> HEPModelParam
+procShapeParam hshape range prior name = HEPModelParam range prior (\x -> alterProc (mulH (scaleH x hshape)) name)
 
 
 totalPrediction :: HEPPrediction -> Process
@@ -68,9 +74,17 @@ modelPoissonProb :: Dataset -> HEPPrediction -> Double
 modelPoissonProb ds m = M.foldr (*) 1 $ M.intersectionWith poissonProbs (totalPrediction m) ds
 
 
-modelProb :: Dataset -> HEPPrediction -> [HEPModelParam] -> [Double] -> Double
-modelProb ds hpred hparams params = priorProb * poissProb
+modelProb :: HEPWorkSpace -> [Double] -> Double
+modelProb (ds, hpred, hparams) params = priorProb * poissProb
     where
         priorProb = product $ zipWith hmpPriorProb hparams params
         hpred' = foldr ($) hpred (zipWith hmpAlter hparams params)
         poissProb = modelPoissonProb ds hpred'
+
+
+bestFit :: HEPWorkSpace -> [Double] -> [Double]
+bestFit hws@(_, _, hparams) startParams =
+        fst $ minimize NMSimplex2 1e-10 9999 boxes (negate . modelProb hws) startParams
+    where
+        searchBox hp x = let (xmin, xmax) = hmpRange hp in max (abs (x - xmin)) (abs (xmax - x))
+        boxes = zipWith searchBox hparams startParams

@@ -23,14 +23,8 @@ def main(fname, norm):
 
 
         ssig = fin.Get(r + "/Nominal/sig_vh_m")
-        for h in ssig.GetHists():
-            if "1600" in h.GetName():
-                hs.append(h)
-                break
-            else:
-                pass
 
-            continue
+        hs += ssig.GetHists()
 
         map(lambda h: h.Scale(norm), hs)
         dmc[r] = map(toList, hs)
