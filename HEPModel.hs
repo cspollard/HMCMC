@@ -4,6 +4,9 @@ import Data.Map (Map)
 import qualified Data.Map as M
 import Data.HMCMC.Dist (poissonProbs)
 
+-- TODO
+-- IntMaps should be much faster for totalPrediction
+
 -- simple histogram type
 type Hist a = [a]
 
@@ -33,8 +36,8 @@ type Dataset = Map String (Hist Int)
 -- a HEPModelParam alters a model in some particular way and has a prior
 -- distribution in its parameter of type a
 data HEPModelParam = HEPModelParam {
-    hnpPriorProb :: Double -> Double,
-    hnpAlter :: Double -> HEPPrediction -> HEPPrediction
+    hmpPriorProb :: Double -> Double,
+    hmpAlter :: Double -> HEPPrediction -> HEPPrediction
 }
 
 
@@ -61,13 +64,13 @@ expectedData = fmap (fmap round) . totalPrediction
 
 
 -- the poisson likelihood of a model given the input data
-modelPoissonLH :: Dataset -> HEPPrediction -> Double
-modelPoissonLH ds m = M.foldr (*) 1 $ M.intersectionWith poissonProbs (totalPrediction m) ds
+modelPoissonProb :: Dataset -> HEPPrediction -> Double
+modelPoissonProb ds m = M.foldr (*) 1 $ M.intersectionWith poissonProbs (totalPrediction m) ds
 
 
-modelLH :: Dataset -> HEPPrediction -> [HEPModelParam] -> [Double] -> Double
-modelLH ds hpred hparams params = priorLH * poissLH
+modelProb :: Dataset -> HEPPrediction -> [HEPModelParam] -> [Double] -> Double
+modelProb ds hpred hparams params = priorProb * poissProb
     where
-        priorLH = product $ zipWith hnpPriorProb hparams params
-        hpred' = foldr ($) hpred (zipWith hnpAlter hparams params)
-        poissLH = modelPoissonLH ds hpred'
+        priorProb = product $ zipWith hmpPriorProb hparams params
+        hpred' = foldr ($) hpred (zipWith hmpAlter hparams params)
+        poissProb = modelPoissonProb ds hpred'

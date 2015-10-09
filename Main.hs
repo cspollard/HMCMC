@@ -34,6 +34,7 @@ gaussProps _ _ = undefined
 appMany :: [a -> b] -> a -> [b]
 appMany fs x = ($ x) `fmap` fs
 
+every :: Int -> [a] -> [a]
 every n xs = case drop (n-1) xs of
                 (y:ys) -> y : every n ys
                 [] -> []
@@ -49,9 +50,9 @@ main = do
     -- remove HVT from data sample
     let ds = expectedData bkgs
     let params = fmap sigNorm (M.keys sigs) ++ (fmap bkgNorm $ M.keys bkgs)
-    let testState = mcmc (gaussProps $ replicate (nbkg+nsig) 0.01) (modelLH ds mc params)
+    let testState = mcmc (gaussProps $ replicate (nbkg+nsig) 0.05) (modelProb ds mc params)
     let startParams = replicate nsig 0 ++ replicate nbkg 1.0
-    let startProb = modelLH ds mc params startParams
+    let startProb = modelProb ds mc params startParams
 
     mapM_ (\xs -> mapM_ (\x -> putStr (show x) >> putChar ' ') xs >> putChar '\n') . take 99999 . every 5 $
             iterateS testState ((startParams, startProb), mkStdGen 0)
