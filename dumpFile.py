@@ -51,7 +51,7 @@ def main(fname, norm):
 def toList(h):
     return (h.GetTitle(),
             [h.GetBinContent(iBin) + 1e-10
-                for iBin in range(1, h.GetNbinsX()+2)])
+                for iBin in range(1, h.GetNbinsX()+1)])
 
 if __name__ == "__main__":
     main(myargv[1], float(myargv[2]))

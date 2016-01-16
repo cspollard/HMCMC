@@ -30,20 +30,32 @@ sampleForever :: RandomGen g => SampleDist g a -> (a, g) -> [Double]
 sampleForever f (a, g) = let (b, g') = f (a, g) in b : sampleForever f (a, g')
 
 
-gaussianPdf :: (Double, Double) -> Double -> Double
-gaussianPdf (mu, sigma) x = D.ugaussianPdf $ (x - mu) / sigma
+gaussianProb :: (Double, Double) -> Double -> Double
+gaussianProb (mu, sigma) x = D.ugaussianPdf $ (x - mu) / sigma
+
+gaussianLogProb :: (Double, Double) -> Double -> Double
+gaussianLogProb (mu, sigma) = log . gaussianProb (mu, sigma)
 
 gaussianProbs :: [(Double, Double)] -> [Double] -> Double
-gaussianProbs musigmas = product . zipWith gaussianPdf musigmas
+gaussianProbs musigmas = product . zipWith gaussianProb musigmas
+
+gaussianLogProbs :: [(Double, Double)] -> [Double] -> Double
+gaussianLogProbs musigmas = sum . zipWith gaussianLogProb musigmas
 
 circleProb :: Double -> [Double] -> Double
 circleProb radius xs = if (sum . map (\x -> x*x)) xs > radius then 0 else 1
 
-poissonProbs :: [Double] -> [Int] -> Double
-poissonProbs mus = product . zipWith poissonProb mus
-
 poissonProb :: Double -> Int -> Double
 poissonProb = flip D.poissonPdf
+
+poissonLogProb :: Double -> Int -> Double
+poissonLogProb l = log . poissonProb l
+
+poissonProbs :: [Double] -> [Int] -> Double
+poissonProbs ls = product . zipWith poissonProb ls
+
+poissonLogProbs :: [Double] -> [Int] -> Double
+poissonLogProbs ls = sum . zipWith poissonLogProb ls
 
 
 flatProb :: [(Double, Double)] -> [Double] -> Double

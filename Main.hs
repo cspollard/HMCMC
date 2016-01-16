@@ -16,11 +16,11 @@ import Data.List (isInfixOf)
 import Control.Applicative ((<$>))
 
 bkgNorm :: String -> HEPModelParam
-bkgNorm = procNormParam 3.0 (\x -> if x < 0 then 0.0 else gaussianPdf (1.0, 0.3) x)
+bkgNorm = procNormParam 3.0 (\x -> if x < 0 then 0.0 else gaussianLogProb (1.0, 0.3) x)
 
 
 sigNorm :: String -> HEPModelParam
-sigNorm = procNormParam 1.0 (\x -> if x < 0 || x > 1 then 0.0 else 1)
+sigNorm = procNormParam 1.0 (\x -> if x < 0 || x > 10 then 0.0 else 1.0)
 
 
 gaussProps :: RandomGen g => [Double] -> ([Double], g) -> ([Double], g)
@@ -46,11 +46,13 @@ main :: IO ()
 main = do
     mc <- fmap fromJust (decode `fmap` BS.getContents :: IO (Maybe HEPPrediction))
     let (sigs, bkgs) = M.partitionWithKey (\k _ -> isInfixOf "HVT" k) mc
-    print bkgs
-    print sigs
     let nbkg = M.size bkgs
     -- remove HVT from data sample
-    let ds = expectedData (M.insert "1.8 TeV HVT" (fmap (scaleH 0.0025) $ sigs M.! "1.8 TeV HVT") bkgs)
+    let ds = expectedData (M.insert "1.8 TeV HVT"  (fmap (scaleH 0.01) (sigs M.! "1.8 TeV HVT")) bkgs)
+    -- let ds = expectedData bkgs
+    print ds
+    print $ totalPrediction bkgs
+    print sigs
     let bkgparams = bkgNorm <$> M.keys bkgs
     let startBkgParams = replicate nbkg 1.0
 

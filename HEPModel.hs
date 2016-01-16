@@ -2,9 +2,12 @@ module HEPModel where
 
 import Data.Map (Map)
 import qualified Data.Map as M
-import Data.HMCMC.Dist (poissonProbs)
+import Data.HMCMC.Dist (poissonLogProbs)
 
 import Numeric.GSL.Minimization
+import Numeric.LinearAlgebra.Data (Matrix)
+
+import Debug.Trace
 
 -- TODO
 -- IntMaps should be much faster for totalPrediction
@@ -39,7 +42,7 @@ type Dataset = Map String (Hist Int)
 -- distribution in its parameter of type a
 data HEPModelParam = HEPModelParam {
     hmpRange :: (Double, Double),
-    hmpPriorProb :: Double -> Double,
+    hmpPriorLogProb :: Double -> Double,
     hmpAlter :: Double -> HEPPrediction -> HEPPrediction
 }
 
@@ -70,21 +73,27 @@ expectedData = fmap (fmap round) . totalPrediction
 
 
 -- the poisson likelihood of a model given the input data
-modelPoissonProb :: Dataset -> HEPPrediction -> Double
-modelPoissonProb ds m = M.foldr (*) 1 $ M.intersectionWith poissonProbs (totalPrediction m) ds
+modelPoissonLogProb :: Dataset -> HEPPrediction -> Double
+modelPoissonLogProb ds m = M.foldr (+) 0 $ M.intersectionWith poissonLogProbs (totalPrediction m) ds
+
+modelLogProb :: HEPWorkSpace -> [Double] -> Double
+modelLogProb (ds, hpred, hparams) params =
+            -- guard against infinities
+            if isInfinite lp
+                then (-1e100)
+                else if isNaN lp
+                    then traceShow params lp
+                    else lp
+            where
+                priorLogProb = sum $ zipWith hmpPriorLogProb hparams params
+                hpred' = foldr ($) hpred (zipWith hmpAlter hparams params)
+                poissLogProb = modelPoissonLogProb ds hpred'
+                lp = priorLogProb + poissLogProb
 
 
-modelProb :: HEPWorkSpace -> [Double] -> Double
-modelProb (ds, hpred, hparams) params = priorProb * poissProb
-    where
-        priorProb = product $ zipWith hmpPriorProb hparams params
-        hpred' = foldr ($) hpred (zipWith hmpAlter hparams params)
-        poissProb = modelPoissonProb ds hpred'
-
-
-bestFit :: HEPWorkSpace -> [Double] -> [Double]
+bestFit :: HEPWorkSpace -> [Double] -> ([Double], Matrix Double)
 bestFit hws@(_, _, hparams) startParams =
-        fst $ minimize NMSimplex2 1e-10 9999 boxes (negate . modelProb hws) startParams
+        minimize NMSimplex2 10 9999 boxes (negate . modelLogProb hws) startParams
     where
         searchBox hp x = let (xmin, xmax) = hmpRange hp in max (abs (x - xmin)) (abs (xmax - x))
-        boxes = zipWith searchBox hparams startParams
+        boxes = traceShowId $ zipWith searchBox hparams startParams
