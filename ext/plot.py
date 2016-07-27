@@ -4,7 +4,7 @@ import numpy as np
 from sys import stdin
 
 
-xs = np.loadtxt(stdin).transpose()
+xs = np.loadtxt(stdin, delimiter=',').transpose()
 print xs.shape
 
 n = 1
