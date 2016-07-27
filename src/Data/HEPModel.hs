@@ -1,6 +1,6 @@
 {-# LANGUAGE RankNTypes #-}
 
-module Data.HEPModel where
+module Data.Model where
 
 import Data.Map (Map)
 import qualified Data.Map as M
@@ -10,76 +10,78 @@ import Statistics.Distribution.Poisson
 import Control.Monad.Primitive (PrimMonad)
 
 
+type PredHist = [Double]
 type PoisHist = [PoissonDistribution]
 type DataHist = [Int]
 
--- the log likelihood of a prediction histogram given a data histogram
-modelLLH :: DataHist -> PoisHist -> Double
-modelLLH dh ph = sum $ zipWith logProbability ph dh
 
-{-
-scaleH :: Num a => a -> Hist a -> Hist a
+-- the log likelihood of a prediction histogram given a data histogram
+poisHistLLH :: DataHist -> PoisHist -> Double
+poisHistLLH dh ph = sum $ zipWith logProbability ph dh
+
+scaleH :: Double -> PredHist -> PredHist
 scaleH n = map (*n)
 
-addH :: Num a => Hist a -> Hist a -> Hist a
+addH :: PredHist -> PredHist -> PredHist
 addH = zipWith (+)
 
-mulH :: Num a => Hist a -> Hist a -> Hist a
+mulH :: PredHist -> PredHist -> PredHist
 mulH = zipWith (*)
 
-sumH :: Num a => [Hist a] -> Hist a
+sumH :: [PredHist] -> PredHist
 sumH = foldr1 addH
 
 
 -- a process's normalization is consistent across regions
-type Process = Map String (Hist Double)
+type Process = Map String PredHist
 
 -- a collection of named processes
-type HEPPrediction = Map String Process
+type Prediction = Map String Process
 
 -- data in several regions
-type Dataset = Map String (Hist Int)
+type Dataset = Map String DataHist
 
 
--- a HEPModelParam alters a model in some particular way and has a prior
+-- a ModelParam alters a model in some particular way and has a prior
 -- distribution in its parameter of type a
-data HEPModelParam = HEPModelParam {
-    hnpPriorProb :: Double -> Double,
-    hnpAlter :: Double -> HEPPrediction -> HEPPrediction
+data ModelParam = ModelParam {
+    mpPrior :: Double -> Double,
+    mpAlter :: Double -> Prediction -> Prediction
 }
 
 
 -- alter a particular process's histograms uniformly by some function
-alterProc :: (Hist Double -> Hist Double) -> String -> HEPPrediction -> HEPPrediction
+alterProc :: (PredHist -> PredHist) -> String -> Prediction -> Prediction
 alterProc f = M.adjust (fmap f)
 
 
--- process normalization HEPModelParam
-procNormParam :: (Double -> Double) -> String -> HEPModelParam
-procNormParam prior name = HEPModelParam prior (\x -> alterProc (scaleH x) name)
+-- process normalization ModelParam
+procNormParam :: ContDistr d => d -> String -> ModelParam
+procNormParam prior name = ModelParam (logDensity prior) (\x -> alterProc (scaleH x) name)
 
 
-procShapeParam :: Hist Double -> (Double -> Double) -> String -> HEPModelParam
-procShapeParam hshape prior name = HEPModelParam prior (\x -> alterProc (mulH (scaleH x hshape)) name)
+procShapeParam :: ContDistr d => PredHist -> d -> String -> ModelParam
+procShapeParam hshape prior name = ModelParam (logDensity prior) (\x -> alterProc (mulH (scaleH x hshape)) name)
 
 
-totalPrediction :: HEPPrediction -> Process
+totalPrediction :: Prediction -> Process
 totalPrediction = M.foldr (M.unionWith addH) M.empty
 
 
-expectedData :: HEPPrediction -> Dataset
+-- TODO!!!
+expectedData :: Prediction -> Dataset
 expectedData = fmap (fmap round) . totalPrediction
 
 
 -- the poisson likelihood of a model given the input data
-modelPoissonLH :: Dataset -> HEPPrediction -> Double
-modelPoissonLH ds m = M.foldr (*) 1 $ M.intersectionWith poissonProbs (totalPrediction m) ds
+modelPoissonLLH :: Dataset -> Prediction -> Double
+modelPoissonLLH ds m = M.foldr (+) 0 $ M.intersectionWith poisHistLLH ds (fmap (fmap poisson) $ totalPrediction m)
 
 
-modelLH :: Dataset -> HEPPrediction -> [HEPModelParam] -> [Double] -> Double
-modelLH ds hpred hparams params = priorLH * poissLH
+
+modelLLH :: Dataset -> Prediction -> [ModelParam] -> [Double] -> Double
+modelLLH ds hpred hparams params = priorLLH + poissLLH
     where
-        priorLH = product $ zipWith hnpPriorProb hparams params
-        hpred' = foldr ($) hpred (zipWith hnpAlter hparams params)
-        poissLH = modelPoissonLH ds hpred'
--}
+        priorLLH = sum $ zipWith mpPrior hparams params
+        hpred' = foldr ($) hpred (zipWith mpAlter hparams params)
+        poissLLH = modelPoissonLLH ds hpred'
