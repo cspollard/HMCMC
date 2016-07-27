@@ -1,36 +1,22 @@
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module Data.Model where
 
+import Data.MonoTraversable
+
 import Data.Map (Map)
 import qualified Data.Map as M
+
+import Data.Vector
 
 import Statistics.Distribution
 import Statistics.Distribution.Poisson
 import Control.Monad.Primitive (PrimMonad)
 
 
-type PredHist = [Double]
-type PoisHist = [PoissonDistribution]
-type DataHist = [Int]
-
-
--- the log likelihood of a prediction histogram given a data histogram
-poissHistLLH :: DataHist -> PoisHist -> Double
-poissHistLLH dh ph = sum $ zipWith logProbability ph dh
-
-scaleH :: Double -> PredHist -> PredHist
-scaleH n = map (*n)
-
-addH :: PredHist -> PredHist -> PredHist
-addH = zipWith (+)
-
-mulH :: PredHist -> PredHist -> PredHist
-mulH = zipWith (*)
-
-sumH :: [PredHist] -> PredHist
-sumH = foldr1 addH
-
+newtype PredHist = PredHist { phVec :: Vector PoissonDistribution } deriving MonoTraversable
+newtype DataHist = DataHist { dhVec :: Vector Int } deriving MonoTraversable
 
 -- a process's normalization is consistent across regions
 type Process = Map String PredHist
@@ -42,8 +28,28 @@ type Prediction = Map String Process
 type Dataset = Map String DataHist
 
 
+-- the log likelihood of a prediction histogram given a data histogram
+predHistLLH :: DataHist -> PredHist -> Double
+predHistLLH dh ph = osum $ zipWith logProbability (otoList ph) (otoList dh)
+
+
+scaleH :: Double -> PredHist -> PredHist
+scaleH n = omap (*n)
+
+addH :: PredHist -> PredHist -> PredHist
+addH h h' = zipWith (+) (otoList h'
+
+mulH :: PredHist -> PredHist -> PredHist
+mulH = zipWith (*)
+
+sumH :: [PredHist] -> PredHist
+sumH = foldr1 addH
+
+
+
+
 -- a ModelParam alters a model in some particular way and has a prior
--- distribution in its parameter of type a
+-- distribution
 data ModelParam = ModelParam {
     mpPrior :: Double -> Double,
     mpAlter :: Double -> Prediction -> Prediction
