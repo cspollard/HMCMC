@@ -1,23 +1,50 @@
 {-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
 module Data.Model where
-
-import Data.MonoTraversable
-
-import Data.Map (Map)
-import qualified Data.Map as M
-
-import Data.Vector
 
 import Statistics.Distribution
 import Statistics.Distribution.Poisson
 import Control.Monad.Primitive (PrimMonad)
 
+import Data.FixedList
+import Data.Foldable
 
-newtype PredHist = PredHist { phVec :: Vector PoissonDistribution } deriving MonoTraversable
-newtype DataHist = DataHist { dhVec :: Vector Int } deriving MonoTraversable
+import Control.Lens.Type
+import Control.Lens.At
+import Control.Lens.Indexed
 
+type PredHist f = Cons f PoissonDistribution
+type DataHist f = Cons f Int
+
+type instance Index (Cons f a) = Int
+type instance Index (Nil a) = Int
+type instance IxValue (Cons f a) = a 
+type instance IxValue (Nil a) = a 
+
+instance (Ixed (f a), Index (f a) ~ Int, IxValue (f a) ~ a, FixedList f) => Ixed (Cons f a) where
+    ix k f xs0@(x :. xs) | k < 0     = pure xs0
+                         | k == 0    = (:. xs) <$> f x
+                         | otherwise = (x :.) <$> ix (k-1) f xs
+
+instance Ixed (Nil a) where
+    ix _ _ _ = pure Nil
+
+
+instance (FixedList f, FoldableWithIndex Int f) => FoldableWithIndex Int (Cons f) where
+    ifoldMap g (x :. xs) = g 0 x `mappend` ifoldMap (g . (+1)) xs
+
+instance FoldableWithIndex Int Nil where
+    ifoldMap _ _ = mempty
+
+
+-- the log likelihood of a prediction histogram given a data histogram
+predHistLLH :: FixedList f => DataHist f -> PredHist f -> Double
+predHistLLH dh ph = sum $ logProbability <$> ph <*> dh
+
+{-
 -- a process's normalization is consistent across regions
 type Process = Map String PredHist
 
@@ -28,9 +55,6 @@ type Prediction = Map String Process
 type Dataset = Map String DataHist
 
 
--- the log likelihood of a prediction histogram given a data histogram
-predHistLLH :: DataHist -> PredHist -> Double
-predHistLLH dh ph = osum $ zipWith logProbability (otoList ph) (otoList dh)
 
 
 scaleH :: Double -> PredHist -> PredHist
@@ -92,3 +116,4 @@ modelLLH ds hpred hparams params = priorLLH + poissLLH
         priorLLH = sum $ zipWith mpPrior hparams params
         hpred' = foldr ($) hpred (zipWith mpAlter hparams params)
         poissLLH = modelPoissonLLH ds hpred'
+-}
