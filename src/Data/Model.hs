@@ -16,8 +16,8 @@ type DataHist = [Int]
 
 
 -- the log likelihood of a prediction histogram given a data histogram
-poisHistLLH :: DataHist -> PoisHist -> Double
-poisHistLLH dh ph = sum $ zipWith logProbability ph dh
+poissHistLLH :: DataHist -> PoisHist -> Double
+poissHistLLH dh ph = sum $ zipWith logProbability ph dh
 
 scaleH :: Double -> PredHist -> PredHist
 scaleH n = map (*n)
@@ -61,7 +61,8 @@ procNormParam prior name = ModelParam (logDensity prior) (\x -> alterProc (scale
 
 
 procShapeParam :: ContDistr d => PredHist -> d -> String -> ModelParam
-procShapeParam hshape prior name = ModelParam (logDensity prior) (\x -> alterProc (mulH (scaleH x hshape)) name)
+procShapeParam hshape prior name = ModelParam (logDensity prior) $
+                                    (\x -> alterProc (mulH (scaleH x hshape)) name)
 
 
 totalPrediction :: Prediction -> Process
@@ -75,7 +76,7 @@ expectedData = fmap (fmap round) . totalPrediction
 
 -- the poisson likelihood of a model given the input data
 modelPoissonLLH :: Dataset -> Prediction -> Double
-modelPoissonLLH ds m = M.foldr (+) 0 $ M.intersectionWith poisHistLLH ds (fmap (fmap poisson) $ totalPrediction m)
+modelPoissonLLH ds m = M.foldr (+) 0 $ M.intersectionWith poissHistLLH ds (fmap (fmap poisson) $ totalPrediction m)
 
 
 

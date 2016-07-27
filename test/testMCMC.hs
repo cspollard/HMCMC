@@ -12,15 +12,15 @@ import Statistics.Quantile
 
 import Data.Sampling.Types (Transition(..), Target(..))
 
-import Data.HEPModel
+import Data.Model
 
 import Conduit
 
 import Numeric.MCMC
 
 -- ~from https://hackage.haskell.org/package/declarative-0.2.1/docs/src/Numeric-MCMC.html#mcmc
-
 -- A Markov chain driven by an arbitrary transition operator.
+-- now using Conduit instead of Pipes
 chain
   :: PrimMonad m
   => Transition m b
@@ -40,7 +40,7 @@ main = withSystemRandom . asGenIO $
 
     where c = Chain t (testLH [1, 1, 1, 1]) [1, 1, 1, 1] Nothing
           t = Target testLH Nothing
-          testData = [1, 50, 25, 100]
+          testData = [1, 4, 10, 2]
           testLH xs = if any (<= 0) xs
                          then (-1e100)
-                         else modelLLH testData (map poisson xs)
+                         else poissHistLLH testData (map poisson xs)
