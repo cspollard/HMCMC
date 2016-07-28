@@ -16,6 +16,12 @@ type SFHist = [Double]
 type PredHist = [PoissonDistribution]
 type DataHist = [Int]
 
+rebinH :: Num a => Int -> [a] -> [a]
+rebinH _ []            = []
+rebinH n h | n <= 1    = h
+           | otherwise = let (hs, hs') = splitAt n h
+                         in  sum hs : rebinH n hs'
+
 zipWithLen :: (a -> b -> c) -> [a] -> [b] -> [c]
 zipWithLen f (a:as) (b:bs) = f a b : zipWithLen f as bs
 zipWithLen _ [] []         = []
