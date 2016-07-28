@@ -47,6 +47,12 @@ takeWhileEnd f xs = case span f xs of
                          (ys, [])    -> ys
                          (_, (y:ys)) -> takeWhileEnd f ys
 
+takeEveryC :: Monad m => Int -> Conduit a m a
+takeEveryC n = do dropC (n-1)
+                  x <- await
+                  case x of
+                       Just y -> yield y >> takeEveryC n
+                       Nothing -> return ()
 
 main :: IO ()
 main = do infiles <- getArgs
@@ -91,5 +97,6 @@ main = do infiles <- getArgs
 
           withSystemRandom . asGenIO $
                 \g -> chain trans c g
+                   =$ takeEveryC 20
                    =$ takeC 9999
                    $$ mapM_C print
