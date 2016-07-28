@@ -75,6 +75,8 @@ main = do infiles <- getArgs
           let mps = map (shapeParam standard) $ M.elems sysPreds :: [ModelParam]
           let mps' = procNormParam (uniformDistr 0.0 10.0) "HVTWHlvqq2000" : mps
 
+          putStrLn . filter (flip notElem ("[]" :: String)) . show $ "HVTWHlvqq2000" : M.keys sysPreds
+
           let nmp = length mps'
           let init = replicate nmp 0
 
