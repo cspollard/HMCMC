@@ -3,7 +3,6 @@ myargv = argv[:]
 
 import ROOT
 import json
-print "HELLO"; stdout.flush()
 
 def main(fname):
     fin = ROOT.TFile.Open(fname)
@@ -11,11 +10,10 @@ def main(fname):
     d = {}
     for k in fin.GetListOfKeys():
         h = fin.Get(k.GetName())
-        print h; stdout.flush()
         d[h.GetName()] = toList(h)
         continue
 
-    print json.dumps(d)
+    print json.dumps(d); stdout.flush()
 
     return
 
