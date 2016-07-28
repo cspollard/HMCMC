@@ -2,6 +2,8 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Data.Model where
 
@@ -12,9 +14,15 @@ import Statistics.Distribution
 import Statistics.Distribution.Poisson
 import Control.Monad.Primitive (PrimMonad)
 
-type SFHist = [Double]
+import Data.Aeson
+import Data.String (IsString)
+
+type Hist = [Double]
 type PredHist = [PoissonDistribution]
 type DataHist = [Int]
+
+newtype ProcName = ProcName String deriving (Show, Eq, Ord, FromJSON, IsString)
+newtype RegName = RegName String deriving (Show, Eq, Ord, FromJSON, IsString)
 
 rebinH :: Num a => Int -> [a] -> [a]
 rebinH _ []            = []
@@ -33,13 +41,13 @@ predHistLLH dh ph = sum $ zipWithLen logProbability ph dh
 
 
 -- a process's normalization is consistent across regions
-type Process = Map String PredHist
+type Process = Map RegName PredHist
 
 -- a collection of named processes
-type Prediction = Map String Process
+type Prediction = Map ProcName Process
 
 -- data in several regions
-type Dataset = Map String DataHist
+type Dataset = Map RegName DataHist
 
 liftP :: (Double -> Double) -> PoissonDistribution -> PoissonDistribution
 liftP f = poisson . f . poissonLambda
@@ -53,7 +61,7 @@ scaleH n = fmap (liftP (*n))
 addH :: PredHist -> PredHist -> PredHist
 addH = zipWithLen (liftP2 (+))
 
-mulH :: SFHist -> PredHist -> PredHist
+mulH :: Hist -> PredHist -> PredHist
 mulH sfh = fmap poisson . zipWithLen (*) sfh . fmap poissonLambda
 
 sumH :: [PredHist] -> PredHist
@@ -71,22 +79,25 @@ data ModelParam = ModelParam {
 
 
 -- alter a particular process's histograms uniformly by some function
-alterProc :: (PredHist -> PredHist) -> String -> Prediction -> Prediction
+alterProc :: (PredHist -> PredHist) -> ProcName -> Prediction -> Prediction
 alterProc f = M.adjust (fmap f)
 
 
 -- process normalization ModelParam
-procNormParam :: ContDistr d => d -> String -> ModelParam
+procNormParam :: ContDistr d => d -> ProcName -> ModelParam
 procNormParam prior name = ModelParam (logDensity prior) (\x -> alterProc (scaleH x) name)
 
 
-procShapeParam :: ContDistr d => SFHist -> d -> String -> ModelParam
-procShapeParam hshape prior name = ModelParam (logDensity prior) $
-                                    (\x -> alterProc (mulH (fmap (*x) hshape)) name)
+procShapeParam :: Double -> Map RegName Hist -> Process -> Process
+procShapeParam x = M.intersectionWith (\sf -> mulH $ fmap (*x) sf)
+
+shapeParam :: ContDistr d => Map ProcName (Map RegName Hist) -> d -> ModelParam
+shapeParam hshapes prior = ModelParam (logDensity prior) $
+                                    (\x pred -> M.intersectionWith (procShapeParam x) hshapes pred)
 
 
 totalPrediction :: Prediction -> Process
-totalPrediction = M.foldr (M.unionWith addH) M.empty
+totalPrediction = M.foldr (M.intersectionWith addH) M.empty
 
 
 -- TODO!!!
