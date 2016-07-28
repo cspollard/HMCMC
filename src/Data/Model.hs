@@ -7,8 +7,8 @@
 
 module Data.Model where
 
-import Data.Map (Map)
-import qualified Data.Map as M
+import Data.Map.Strict (Map)
+import qualified Data.Map.Strict as M
 
 import Statistics.Distribution
 import Statistics.Distribution.Poisson
@@ -64,6 +64,9 @@ addH = zipWithLen (liftP2 (+))
 mulH :: Hist -> PredHist -> PredHist
 mulH sfh = fmap poisson . zipWithLen (*) sfh . fmap poissonLambda
 
+divH :: Hist -> PredHist -> PredHist
+divH sfh = fmap poisson . zipWithLen (/) sfh . fmap poissonLambda
+
 sumH :: [PredHist] -> PredHist
 sumH = foldl1 addH
 
@@ -91,8 +94,8 @@ procNormParam prior name = ModelParam (logDensity prior) (\x -> alterProc (scale
 procShapeParam :: Double -> Map RegName Hist -> Process -> Process
 procShapeParam x = M.intersectionWith (\sf -> mulH $ fmap (*x) sf)
 
-shapeParam :: ContDistr d => Map ProcName (Map RegName Hist) -> d -> ModelParam
-shapeParam hshapes prior = ModelParam (logDensity prior) $
+shapeParam :: ContDistr d => d -> Map ProcName (Map RegName Hist) -> ModelParam
+shapeParam prior hshapes = ModelParam (logDensity prior) $
                                     (\x pred -> M.intersectionWith (procShapeParam x) hshapes pred)
 
 
