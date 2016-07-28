@@ -21,4 +21,9 @@ for param in xs:
     plt.bar(center, hist, align='center', width=width)
     plt.savefig("param%03i.png" % n)
     plt.clf()
+
+    print name
+    print "5%, 50%, 95%: %.2f, %.2f, %.2f" %
+            (np.quantile(param, 5), np.median(param),
+                    np.quantile(param, 95))
     n += 1

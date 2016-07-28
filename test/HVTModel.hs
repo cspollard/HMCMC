@@ -79,7 +79,7 @@ main = do infiles <- getArgs
           let sysPreds = fmap (M.unionWith (M.unionWith (zipWith (flip (/)))) nomH) sysHs
 
           let mps = map (shapeParam standard) $ M.elems sysPreds :: [ModelParam]
-          let mps' = procNormParam (uniformDistr 0.0 10.0) "HVTWHlvqq2000" : mps
+          let mps' = procNormParam (uniformDistr -10.0 100.0) "HVTWHlvqq2000" : mps
 
           putStrLn . filter (flip notElem ("[]" :: String)) . show $ "HVTWHlvqq2000" : M.keys sysPreds
 
