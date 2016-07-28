@@ -113,9 +113,12 @@ modelPoissonLLH :: Dataset -> Prediction -> Double
 modelPoissonLLH ds m = M.foldr (+) 0 $ M.intersectionWith predHistLLH ds (totalPrediction m)
 
 
-modelLLH :: Dataset -> Prediction -> [ModelParam] -> [Double] -> Double
-modelLLH ds hpred hparams params = priorLLH + poissLLH
+-- TODO
+-- this is crap.
+modelLLH :: RealFloat a => Dataset -> Prediction -> [ModelParam] -> [a] -> a
+modelLLH ds hpred hparams params' = realToFrac $ priorLLH + poissLLH
     where
+        params = map realToFrac params'
         priorLLH = sum $ zipWithLen mpPrior hparams params
         hpred' = foldr ($) hpred (zipWithLen mpAlter hparams params)
         poissLLH = modelPoissonLLH ds hpred'

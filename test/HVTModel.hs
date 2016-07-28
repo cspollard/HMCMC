@@ -18,6 +18,7 @@ import System.Environment (getArgs)
 
 import Data.Model
 import Numeric.MCMC
+import Numeric.AD (grad)
 import Data.Sampling.Types (Transition(..), Target(..))
 
 import Data.Map.Strict (Map)
@@ -86,17 +87,20 @@ main = do infiles <- getArgs
           let nmp = length mps'
           let init = replicate nmp 0
 
-          let t = Target (modelLLH dataset nomPred mps') Nothing
-          let c = Chain t (modelLLH dataset nomPred mps' init) init Nothing
+          let f = modelLLH dataset nomPred mps' :: [Double] -> Double
+          let gradF = grad $ modelLLH dataset nomPred mps' :: [Double] -> [Double]
+
+          let t = Target f (Just gradF)
+          let c = Chain t (f init) init Nothing
 
           -- TODO
-          -- slice isn't working!
+          -- slice and hamiltonian aren't working!
           -- let trans = slice 0
-
+          -- let trans = hamiltonian 0.01 10
           let trans = metropolis 0.1
 
           withSystemRandom . asGenIO $
                 \g -> chain trans c g
-                   =$ takeEveryC 1
-                   =$ takeC 100
+                   =$ takeEveryC 10
+                   =$ takeC 1000
                    $$ mapM_C print
