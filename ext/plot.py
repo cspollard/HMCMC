@@ -22,9 +22,6 @@ for param in xs:
     plt.savefig("param%03i.png" % n)
     plt.clf()
 
-    print names[n]
-    print "5%%, 50%%, 95%%: %.2f, %.2f, %.2f" \
-            % (np.percentile(param, 5), np.median(param),
-                    np.percentile(param, 95))
+    print names[n], "median: %.2f" % np.median(param)
     stdout.flush()
     n += 1

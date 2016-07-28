@@ -102,5 +102,5 @@ main = do infiles <- getArgs
           withSystemRandom . asGenIO $
                 \g -> chain trans c g
                    =$ takeEveryC 10
-                   =$ takeC 1000
+                   =$ takeC 10000
                    $$ mapM_C print
