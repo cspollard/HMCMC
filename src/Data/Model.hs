@@ -20,8 +20,15 @@ type Hist = [Double]
 type PredHist = [PoissonDistribution]
 type DataHist = [Int]
 
-newtype ProcName = ProcName String deriving (Show, Eq, Ord, FromJSON, IsString)
-newtype RegName = RegName String deriving (Show, Eq, Ord, FromJSON, IsString)
+newtype ProcName = ProcName { unPN :: String } deriving (Eq, Ord, FromJSON, IsString)
+newtype RegName = RegName { unRN :: String } deriving (Eq, Ord, FromJSON, IsString)
+
+instance Show ProcName where
+    show = unPN
+
+instance Show RegName where
+    show = unRN
+
 
 rebinH :: Num a => Int -> [a] -> [a]
 rebinH _ []            = []
@@ -74,10 +81,10 @@ sumH = foldl1 addH
 
 -- a ModelParam alters a model in some particular way and has a prior
 -- distribution
-data ModelParam = ModelParam {
-    mpPrior :: Double -> Double,
-    mpAlter :: Double -> Prediction -> Prediction
-}
+data ModelParam = ModelParam { mpName :: String
+                             , mpPrior :: Double -> Double
+                             , mpAlter :: Double -> Prediction -> Prediction
+                             }
 
 
 -- alter a particular process's histograms uniformly by some function
@@ -87,15 +94,16 @@ alterProc f = M.adjust (fmap f)
 
 -- process normalization ModelParam
 procNormParam :: ContDistr d => d -> ProcName -> ModelParam
-procNormParam prior name = ModelParam (logDensity prior) (\x -> alterProc (scaleH x) name)
+procNormParam prior name = ModelParam (show name ++ "_norm") (logDensity prior)
+                                $ (\x -> alterProc (scaleH x) name)
 
 
 procShapeParam :: Double -> Map RegName Hist -> Process -> Process
-procShapeParam x = M.intersectionWith (\sf -> mulH $ fmap (*x) sf)
+procShapeParam x s p = M.differenceWith (\p' s' -> Just $ mulH (fmap (*x) s') p') p s
 
-shapeParam :: ContDistr d => d -> Map ProcName (Map RegName Hist) -> ModelParam
-shapeParam prior hshapes = ModelParam (logDensity prior) $
-                                    (\x p -> M.intersectionWith (procShapeParam x) hshapes p)
+shapeParam :: ContDistr d => String -> d -> Map ProcName (Map RegName Hist) -> ModelParam
+shapeParam name prior hshapes = ModelParam name (logDensity prior) f
+    where f x p = M.differenceWith (\p' s' -> Just $ procShapeParam x s' p') p hshapes
 
 
 totalPrediction :: Prediction -> Process
@@ -109,11 +117,10 @@ totalPrediction = M.foldr (M.intersectionWith addH) M.empty
 
 -- the poisson likelihood of a model given the input data
 modelPoissonLLH :: Dataset -> Prediction -> Double
-modelPoissonLLH ds m = M.foldr (+) 0 $ M.intersectionWith predHistLLH ds (totalPrediction m)
+modelPoissonLLH ds m = M.foldr (+) 0 $ M.intersectionWith predHistLLH ds
+                                     $ totalPrediction m
 
 
--- TODO
--- this is crap.
 modelLLH :: RealFloat a => Dataset -> Prediction -> [ModelParam] -> [a] -> a
 modelLLH ds hpred hparams params' = realToFrac $ priorLLH + poissLLH
     where

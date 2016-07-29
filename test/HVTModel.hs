@@ -17,7 +17,6 @@ import System.Environment (getArgs)
 
 import Data.Model
 import Numeric.MCMC
-import Numeric.AD (grad)
 
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
@@ -80,31 +79,25 @@ main = do infiles <- getArgs
 
           let sysPreds = fmap (M.intersectionWith (M.intersectionWith (zipWith (flip (/)))) nomH) sysHs
 
-          let shapeSysts = fmap (shapeParam standard) sysPreds
-          let normSysts = M.fromList [ ("HVT_norm", procNormParam (uniformDistr (-10.0) 100.0) "HVTWHlvqq2000")
-                                     , ("tt_norm", procNormParam (normalDistr 1 0.3) "TTbar")
-                                     , ("Wb_norm", procNormParam (normalDistr 1 0.3) "Wb")
-                                     , ("Wc_norm", procNormParam (normalDistr 1 0.3) "Wc")
-                                     , ("Wl_norm", procNormParam (normalDistr 1 0.3) "Wl")
-                                     ]
+          let shapeSysts = map (\(n, p) -> shapeParam n (normalDistr 1.0 1.0) p) $ M.toList sysPreds
+          let normSysts = [ procNormParam (uniformDistr (-10.0) 100.0) "HVTWHlvqq2000"
+                          , procNormParam (normalDistr 1 0.3) "TTbar"
+                          , procNormParam (normalDistr 1 0.3) "Wb"
+                          , procNormParam (normalDistr 1 0.3) "Wc"
+                          , procNormParam (normalDistr 1 0.3) "Wl"
+                          ]
 
-          let m = M.union shapeSysts normSysts
-          let systs = M.elems m
-          let systNames = M.keys m
+          let systs = normSysts ++ shapeSysts 
 
-          putStrLn . showList' $ "LL" : systNames
+          putStrLn . showList' $ "LL" : map mpName systs
 
-          let initial = replicate (M.size shapeSysts) 0 ++ replicate (M.size normSysts) 1
+          -- start every NP at 1.0.
+          let initial = map (const 1.0) systs
+
           let f = modelLLH dataset nomPred systs :: [Double] -> Double
-          let gradF = grad $ modelLLH dataset nomPred systs :: [Double] -> [Double]
 
-          let t = Target f (Just gradF)
+          let t = Target f Nothing
           let c = Chain t (f initial) initial Nothing
-
-          -- TODO
-          -- slice and hamiltonian aren't working!
-          -- let trans = slice 0
-          -- let trans = hamiltonian 0.01 10
 
           -- TODO
           -- I think the signal normalization needs a different step
