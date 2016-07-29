@@ -55,6 +55,9 @@ takeEveryC n = do dropC (n-1)
                        Just y -> yield y >> takeEveryC n
                        Nothing -> return ()
 
+showList' :: Show a => [a] -> String
+showList' = filter (flip notElem ("[]" :: String)) . show
+
 main :: IO ()
 main = do infiles <- getArgs
           fhs <- traverse (\f -> (f,) . decodeStrict <$> BS.readFile f) infiles
@@ -82,7 +85,7 @@ main = do infiles <- getArgs
           let mps = map (shapeParam standard) $ M.elems sysPreds :: [ModelParam]
           let mps' = procNormParam (uniformDistr (-10.0) 100.0) "HVTWHlvqq2000" : mps
 
-          putStrLn . filter (flip notElem ("[]" :: String)) . show $ "HVTWHlvqq2000" : M.keys sysPreds
+          putStrLn . showList' $ "LL" : "HVTWHlvqq2000" : M.keys sysPreds
 
           let nmp = length mps'
           let init = replicate nmp 0
@@ -101,6 +104,6 @@ main = do infiles <- getArgs
 
           withSystemRandom . asGenIO $
                 \g -> chain trans c g
-                   =$ takeEveryC 10
+                   =$ takeEveryC 20
                    =$ takeC 10000
-                   $$ mapM_C print
+                   $$ mapM_C (\(Chain _ ll xs _) -> putStrLn . showList' $ ll:xs)
