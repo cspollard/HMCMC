@@ -12,7 +12,6 @@ import qualified Data.Map.Strict as M
 
 import Statistics.Distribution
 import Statistics.Distribution.Poisson
-import Control.Monad.Primitive (PrimMonad)
 
 import Data.Aeson
 import Data.String (IsString)
@@ -96,7 +95,7 @@ procShapeParam x = M.intersectionWith (\sf -> mulH $ fmap (*x) sf)
 
 shapeParam :: ContDistr d => d -> Map ProcName (Map RegName Hist) -> ModelParam
 shapeParam prior hshapes = ModelParam (logDensity prior) $
-                                    (\x pred -> M.intersectionWith (procShapeParam x) hshapes pred)
+                                    (\x p -> M.intersectionWith (procShapeParam x) hshapes p)
 
 
 totalPrediction :: Prediction -> Process

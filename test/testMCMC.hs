@@ -2,7 +2,7 @@
 
 module Main where
 
-import System.Random.MWC.Probability (Gen, withSystemRandom, asGenIO)
+import System.Random.MWC.Probability (Gen)
 import qualified System.Random.MWC.Probability as MWC
 import Control.Monad.Trans.State.Strict (execStateT)
 
@@ -12,7 +12,6 @@ import Conduit
 
 import Data.Model
 import Numeric.MCMC
-import Data.Sampling.Types (Transition(..), Target(..))
 
 -- ~from https://hackage.haskell.org/package/declarative-0.2.1/docs/src/Numeric-MCMC.html#mcmc
 -- A Markov chain driven by an arbitrary transition operator.

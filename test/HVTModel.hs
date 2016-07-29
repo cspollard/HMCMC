@@ -4,14 +4,13 @@
 
 module Main where
 
-import System.Random.MWC.Probability (Gen, withSystemRandom, asGenIO)
+import System.Random.MWC.Probability (Gen)
 import qualified System.Random.MWC.Probability as MWC
 import Control.Monad.Trans.State.Strict (execStateT)
 
 import Statistics.Distribution.Poisson
 import Statistics.Distribution.Normal
 import Statistics.Distribution.Uniform
-import Data.Foldable (traverse_)
 
 import Conduit
 import System.Environment (getArgs)
@@ -19,7 +18,6 @@ import System.Environment (getArgs)
 import Data.Model
 import Numeric.MCMC
 import Numeric.AD (grad)
-import Data.Sampling.Types (Transition(..), Target(..))
 
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
@@ -46,7 +44,7 @@ chain transition = loop where
 takeWhileEnd :: (a -> Bool) -> [a] -> [a]
 takeWhileEnd f xs = case span f xs of
                          (ys, [])    -> ys
-                         (_, (y:ys)) -> takeWhileEnd f ys
+                         (_, (_:ys)) -> takeWhileEnd f ys
 
 takeEveryC :: Monad m => Int -> Conduit a m a
 takeEveryC n = do dropC (n-1)
@@ -80,30 +78,41 @@ main = do infiles <- getArgs
 
           let sysHs = M.delete "nominal" hs
 
-          let sysPreds = fmap (M.unionWith (M.unionWith (zipWith (flip (/)))) nomH) sysHs
+          let sysPreds = fmap (M.intersectionWith (M.intersectionWith (zipWith (flip (/)))) nomH) sysHs
 
-          let mps = map (shapeParam standard) $ M.elems sysPreds :: [ModelParam]
-          let mps' = procNormParam (uniformDistr (-10.0) 100.0) "HVTWHlvqq2000" : mps
+          let shapeSysts = fmap (shapeParam standard) sysPreds
+          let normSysts = M.fromList [ ("HVT_norm", procNormParam (uniformDistr (-10.0) 100.0) "HVTWHlvqq2000")
+                                     , ("tt_norm", procNormParam (normalDistr 1 0.3) "TTbar")
+                                     , ("Wb_norm", procNormParam (normalDistr 1 0.3) "Wb")
+                                     , ("Wc_norm", procNormParam (normalDistr 1 0.3) "Wc")
+                                     , ("Wl_norm", procNormParam (normalDistr 1 0.3) "Wl")
+                                     ]
 
-          putStrLn . showList' $ "LL" : "HVTWHlvqq2000" : M.keys sysPreds
+          let m = M.union shapeSysts normSysts
+          let systs = M.elems m
+          let systNames = M.keys m
 
-          let nmp = length mps'
-          let init = replicate nmp 0
+          putStrLn . showList' $ "LL" : systNames
 
-          let f = modelLLH dataset nomPred mps' :: [Double] -> Double
-          let gradF = grad $ modelLLH dataset nomPred mps' :: [Double] -> [Double]
+          let initial = replicate (M.size shapeSysts) 0 ++ replicate (M.size normSysts) 1
+          let f = modelLLH dataset nomPred systs :: [Double] -> Double
+          let gradF = grad $ modelLLH dataset nomPred systs :: [Double] -> [Double]
 
           let t = Target f (Just gradF)
-          let c = Chain t (f init) init Nothing
+          let c = Chain t (f initial) initial Nothing
 
           -- TODO
           -- slice and hamiltonian aren't working!
           -- let trans = slice 0
           -- let trans = hamiltonian 0.01 10
+
+          -- TODO
+          -- I think the signal normalization needs a different step
+          -- size...
           let trans = metropolis 0.1
 
           withSystemRandom . asGenIO $
-                \g -> chain trans c g
-                   =$ takeEveryC 20
-                   =$ takeC 10000
-                   $$ mapM_C (\(Chain _ ll xs _) -> putStrLn . showList' $ ll:xs)
+                \gen -> chain trans c gen
+                     =$ takeEveryC 20
+                     =$ takeC 10000
+                     $$ mapM_C (\(Chain _ ll xs _) -> putStrLn . showList' $ ll:xs)
