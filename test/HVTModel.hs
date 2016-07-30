@@ -10,7 +10,6 @@ import System.Random.MWC.Probability (Gen)
 import qualified System.Random.MWC.Probability as MWC
 import Control.Monad.Trans.State.Strict (execStateT)
 
-import Statistics.Distribution.Poisson
 import Statistics.Distribution.Normal
 import Statistics.Distribution.Uniform
 
@@ -66,7 +65,6 @@ main = do infiles <- getArgs
               g (k, (Just m)) = let (procN, regN) = break (== '_') $ takeWhileEnd (/= '/') k
                                 in  flip M.map m $ M.singleton (ProcName procN)
                                                     . M.singleton (RegName regN)
-                                                    . fmap (\x -> if x <= 0 then 1.0e-10 else x)
                                                     . rebinH 10 . snd
 
           let hs = M.filterWithKey (\k _ -> not $ "__1down" `isSuffixOf` k) $
@@ -74,20 +72,18 @@ main = do infiles <- getArgs
 
           let dataset = fmap (fmap round) $ hs M.! "nominal" M.! "data" :: Dataset
 
-          let nomH = M.delete "data" $ hs M.! "nominal"
-
-          let nomPred = fmap (fmap (fmap poisson)) nomH :: Prediction
+          let nomPred = M.delete "data" $ hs M.! "nominal" :: Prediction
 
           let sysHs = M.delete "nominal" hs
 
-          let sysPreds = fmap (M.intersectionWith (M.intersectionWith (zipWith (flip (/)))) nomH) sysHs
+          let sysDiffs = fmap (M.intersectionWith (M.intersectionWith (flip subH)) nomPred) sysHs
 
-          let shapeSysts = map (\(n, p) -> shapeParam n (normalDistr 1.0 1.0) p) $ M.toList sysPreds
+          let shapeSysts = map (\(n, p) -> shapeParam n (normalDistr 0 1.0) p) $ M.toList sysDiffs
           let normSysts = [ procNormParam (uniformDistr 1.0e-10 100.0) "HVTWHlvqq2000"
-                          , procNormParam (normalDistr 1 0.3) "TTbar"
-                          , procNormParam (normalDistr 1 0.3) "Wb"
-                          , procNormParam (normalDistr 1 0.3) "Wc"
-                          , procNormParam (normalDistr 1 0.3) "Wl"
+                          , procNormParam (normalDistr 1.0 0.3) "TTbar"
+                          , procNormParam (normalDistr 1.0 0.3) "Wb"
+                          , procNormParam (normalDistr 1.0 0.3) "Wc"
+                          , procNormParam (normalDistr 1.0 0.3) "Wl"
                           ]
 
           let systs = normSysts ++ shapeSysts 
@@ -95,7 +91,7 @@ main = do infiles <- getArgs
           putStrLn . showList' $ "LL" : map mpName systs
 
           -- start every NP at 1.0.
-          let initial = map (const 1.0) systs
+          let initial = map (const 1.0) normSysts ++ map (const 0.0) shapeSysts
 
           let f = modelLLH dataset nomPred systs :: [Double] -> Double
 
@@ -105,10 +101,10 @@ main = do infiles <- getArgs
           -- TODO
           -- I think the signal normalization needs a different step
           -- size...
-          let trans = metropolis 0.1
+          let trans = metropolis 0.25
 
           withSystemRandom . asGenIO $
                 \gen -> chain trans c gen
-                     =$ takeEveryC 20
-                     =$ takeC 100
+                     =$ takeEveryC 10
+                     =$ takeC 1000
                      $$ mapM_C (\(Chain _ llhood xs _) -> putStrLn . showList' $ llhood:xs)

@@ -7,8 +7,6 @@
 
 module Data.Model where
 
-import Debug.Trace
-
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
 
@@ -49,10 +47,12 @@ predHistLLH dh ph = sum $ zipWithLen logProbability ph dh
 
 
 -- a process's normalization is consistent across regions
-type Process = Map RegName PredHist
+type Process = Map RegName Hist
 
 -- a collection of named processes
 type Prediction = Map ProcName Process
+
+type TotalPrediction = Map RegName PredHist
 
 -- data in several regions
 type Dataset = Map RegName DataHist
@@ -63,21 +63,29 @@ liftP f = poisson . f . poissonLambda
 liftP2 :: (Double -> Double -> Double) -> PoissonDistribution -> PoissonDistribution -> PoissonDistribution
 liftP2 f p p' = poisson $ f (poissonLambda p) (poissonLambda p')
 
-scaleH :: Double -> PredHist -> PredHist
-scaleH n = fmap (liftP (*n))
+toPred :: Hist -> PredHist
+toPred = fmap (poisson . cleanBin)
 
-addH :: PredHist -> PredHist -> PredHist
-addH = zipWithLen (liftP2 (+))
+scaleH :: Double -> Hist -> Hist
+scaleH n = fmap (*n)
 
-mulH :: Hist -> PredHist -> PredHist
-mulH sfh = fmap poisson . zipWithLen (*) sfh . fmap poissonLambda
+addH :: Hist -> Hist -> Hist
+addH = zipWithLen (+)
 
-divH :: Hist -> PredHist -> PredHist
-divH sfh = fmap poisson . zipWithLen (/) sfh . fmap poissonLambda
+cleanBin :: Double -> Double
+cleanBin x = if x <= 0 then 1e-100 else x
 
-sumH :: [PredHist] -> PredHist
+mulH :: Hist -> Hist -> Hist
+mulH = zipWithLen (*)
+
+divH :: Hist -> Hist -> Hist
+divH = zipWithLen (/)
+
+sumH :: [Hist] -> Hist
 sumH = foldl1 addH
 
+subH :: Hist -> Hist -> Hist
+subH = zipWithLen (-)
 
 
 
@@ -90,7 +98,7 @@ data ModelParam = ModelParam { mpName :: String
 
 
 -- alter a particular process's histograms uniformly by some function
-alterProc :: (PredHist -> PredHist) -> ProcName -> Prediction -> Prediction
+alterProc :: (Hist -> Hist) -> ProcName -> Prediction -> Prediction
 alterProc f = M.adjust (fmap f)
 
 
@@ -101,16 +109,15 @@ procNormParam prior name = ModelParam (show name ++ "_norm") (logDensity prior)
 
 
 procShapeParam :: Double -> Map RegName Hist -> Process -> Process
-procShapeParam x s p = M.differenceWith (\p' s' -> Just $ mulH (fmap (*x) s') p') p s
+procShapeParam x s p = M.differenceWith (\p' s' -> Just $ addH (scaleH x s') p') p s
 
 shapeParam :: ContDistr d => String -> d -> Map ProcName (Map RegName Hist) -> ModelParam
 shapeParam name prior hshapes = ModelParam name (logDensity prior) f
     where f x p = M.differenceWith (\p' s' -> Just $ procShapeParam x s' p') p hshapes
 
 
-totalPrediction :: Prediction -> Process
-totalPrediction = M.foldr (M.unionWith addH) M.empty
-
+totalPrediction :: Prediction -> TotalPrediction
+totalPrediction = fmap toPred . M.foldr (M.unionWith addH) M.empty
 
 -- TODO!!!
 -- expectedData :: Prediction -> Dataset
@@ -124,9 +131,8 @@ modelPoissonLLH ds m = M.foldr (+) 0 $ M.intersectionWith predHistLLH ds
 
 
 modelLLH :: Dataset -> Prediction -> [ModelParam] -> [Double] -> Double
-modelLLH ds hpred hparams params = trace ("priorLLH: " ++ show priorLLH) priorLLH + trace ("poissLLH: " ++ show poissLLH) poissLLH
+modelLLH ds hpred hparams params = priorLLH + poissLLH
     where
-        nan = 0/0
         priorLLH = sum $ zipWithLen mpPrior hparams params
         hpred' = foldr ($) hpred (zipWithLen mpAlter hparams params)
-        poissLLH = if any (< 0.0) params then trace "LT 0" nan else trace "GT 0" $ modelPoissonLLH ds hpred'
+        poissLLH = modelPoissonLLH ds hpred'
