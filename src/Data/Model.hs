@@ -7,6 +7,8 @@
 
 module Data.Model where
 
+import Debug.Trace
+
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
 
@@ -127,4 +129,4 @@ modelLLH ds hpred hparams params' = realToFrac $ priorLLH + poissLLH
         params = map realToFrac params'
         priorLLH = sum $ zipWithLen mpPrior hparams params
         hpred' = foldr ($) hpred (zipWithLen mpAlter hparams params)
-        poissLLH = modelPoissonLLH ds hpred'
+        poissLLH = if any (< 0.0) params then log 0.0 else modelPoissonLLH ds hpred'

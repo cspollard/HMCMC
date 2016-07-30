@@ -9,7 +9,7 @@ import qualified System.Random.MWC.Probability as MWC
 import Control.Monad.Trans.State.Strict (execStateT)
 
 import Statistics.Distribution.Poisson
-import Statistics.Distribution.Normal
+import Statistics.Distribution.LogNormal
 import Statistics.Distribution.Uniform
 
 import Conduit
@@ -79,12 +79,12 @@ main = do infiles <- getArgs
 
           let sysPreds = fmap (M.intersectionWith (M.intersectionWith (zipWith (flip (/)))) nomH) sysHs
 
-          let shapeSysts = map (\(n, p) -> shapeParam n (normalDistr 1.0 1.0) p) $ M.toList sysPreds
-          let normSysts = [ procNormParam (uniformDistr 0.0 100.0) "HVTWHlvqq2000"
-                          , procNormParam (normalDistr 1 0.3) "TTbar"
-                          , procNormParam (normalDistr 1 0.3) "Wb"
-                          , procNormParam (normalDistr 1 0.3) "Wc"
-                          , procNormParam (normalDistr 1 0.3) "Wl"
+          let shapeSysts = map (\(n, p) -> shapeParam n (logNormalDistr 1.0 1.0) p) $ M.toList sysPreds
+          let normSysts = [ procNormParam (uniformDistr 1.0e-10 100.0) "HVTWHlvqq2000"
+                          , procNormParam (logNormalDistr 1 0.3) "TTbar"
+                          , procNormParam (logNormalDistr 1 0.3) "Wb"
+                          , procNormParam (logNormalDistr 1 0.3) "Wc"
+                          , procNormParam (logNormalDistr 1 0.3) "Wl"
                           ]
 
           let systs = normSysts ++ shapeSysts 
