@@ -1,4 +1,5 @@
 module Statistics.Distribution.LogNormal ( logNormalDistr
+                                         , logNormalDistr'
                                          , getNormal
                                          ) where
 
@@ -10,6 +11,12 @@ data LogNormalDistribution = LND { getNormal :: NormalDistribution }
 
 logNormalDistr :: Double -> Double -> LogNormalDistribution
 logNormalDistr m s = LND $ normalDistr m s
+
+-- gives the approximate mean and stdDev for the LogNormal.
+logNormalDistr' :: Double -> Double -> LogNormalDistribution
+logNormalDistr' m s = LND $ normalDistr mu sigma
+    where mu = log $ m*m / sqrt (s*s + m*m)
+          sigma = log $ 1 + (s*s / m*m)
 
 
 instance Distribution LogNormalDistribution where

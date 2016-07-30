@@ -79,12 +79,12 @@ main = do infiles <- getArgs
 
           let sysPreds = fmap (M.intersectionWith (M.intersectionWith (zipWith (flip (/)))) nomH) sysHs
 
-          let shapeSysts = map (\(n, p) -> shapeParam n (logNormalDistr 1.0 1.0) p) $ M.toList sysPreds
+          let shapeSysts = map (\(n, p) -> shapeParam n (logNormalDistr' 1.0 1.0) p) $ M.toList sysPreds
           let normSysts = [ procNormParam (uniformDistr 1.0e-10 100.0) "HVTWHlvqq2000"
-                          , procNormParam (logNormalDistr 1 0.3) "TTbar"
-                          , procNormParam (logNormalDistr 1 0.3) "Wb"
-                          , procNormParam (logNormalDistr 1 0.3) "Wc"
-                          , procNormParam (logNormalDistr 1 0.3) "Wl"
+                          , procNormParam (logNormalDistr' 1 0.3) "TTbar"
+                          , procNormParam (logNormalDistr' 1 0.3) "Wb"
+                          , procNormParam (logNormalDistr' 1 0.3) "Wc"
+                          , procNormParam (logNormalDistr' 1 0.3) "Wl"
                           ]
 
           let systs = normSysts ++ shapeSysts 
@@ -106,6 +106,6 @@ main = do infiles <- getArgs
 
           withSystemRandom . asGenIO $
                 \gen -> chain trans c gen
-                     =$ takeEveryC 20
-                     =$ takeC 2000
+                     =$ takeEveryC 10
+                     =$ takeC 10000
                      $$ mapM_C (\(Chain _ ll xs _) -> putStrLn . showList' $ ll:xs)

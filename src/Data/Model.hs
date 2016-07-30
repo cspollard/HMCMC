@@ -129,4 +129,4 @@ modelLLH ds hpred hparams params' = realToFrac $ priorLLH + poissLLH
         params = map realToFrac params'
         priorLLH = sum $ zipWithLen mpPrior hparams params
         hpred' = foldr ($) hpred (zipWithLen mpAlter hparams params)
-        poissLLH = if any (< 0.0) params then log 0.0 else modelPoissonLLH ds hpred'
+        poissLLH = if any (< 0.0) params then traceShow "LESS THAN 0" $ log 0.0 else modelPoissonLLH ds hpred'
