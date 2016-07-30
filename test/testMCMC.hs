@@ -40,7 +40,7 @@ main = withSystemRandom . asGenIO $
           t = Target testLH Nothing
           testData = [1, 100, 25, 50]
           initPred = [1, 1, 1, 1]
-          ln = logNormalDistr' 500 1
+          ln = logNormalDistr' 50 20
           testLH xs = if any (<= 0) xs
                          then log 0.0
-                         else {- predHistLLH testData (fmap poisson xs) + -} logDensity ln (sum xs)
+                         else predHistLLH testData (fmap poisson xs) + (sum $ map (logDensity ln) xs)

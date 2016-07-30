@@ -106,6 +106,6 @@ main = do infiles <- getArgs
 
           withSystemRandom . asGenIO $
                 \gen -> chain trans c gen
-                     =$ takeEveryC 10
-                     =$ takeC 10000
+                     =$ takeEveryC 20
+                     =$ takeC 1000
                      $$ mapM_C (\(Chain _ ll xs _) -> putStrLn . showList' $ ll:xs)

@@ -6,8 +6,6 @@ module Statistics.Distribution.LogNormal ( logNormalDistr
 import Statistics.Distribution
 import Statistics.Distribution.Normal
 
-import Debug.Trace
-
 data LogNormalDistribution = LND { getNormal :: NormalDistribution }
     deriving (Eq, Read, Show)
 
@@ -18,7 +16,7 @@ logNormalDistr m s = LND $ normalDistr m s
 logNormalDistr' :: Double -> Double -> LogNormalDistribution
 logNormalDistr' m s = LND $ normalDistr mu sigma
     where mu = log $ m*m / sqrt (s*s + m*m)
-          sigma = sqrt . log $ 1 + (s*s / m*m)
+          sigma = sqrt . log $ 1 + ((s*s) / (m*m))
 
 
 instance Distribution LogNormalDistribution where
@@ -42,4 +40,4 @@ instance ContGen LogNormalDistribution where
 instance ContDistr LogNormalDistribution where
     quantile (LND nd) = quantile nd . log
     density (LND nd) x | x <= 0     = 0.0
-                       | otherwise = traceShow x . traceShowId $ density nd (log x) / (x * sqrt (stdDev nd) )
+                       | otherwise = density nd (log x) / (x * sqrt (stdDev nd) )
