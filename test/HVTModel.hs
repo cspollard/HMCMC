@@ -4,12 +4,14 @@
 
 module Main where
 
+import Data.List (isSuffixOf)
+
 import System.Random.MWC.Probability (Gen)
 import qualified System.Random.MWC.Probability as MWC
 import Control.Monad.Trans.State.Strict (execStateT)
 
 import Statistics.Distribution.Poisson
-import Statistics.Distribution.LogNormal
+import Statistics.Distribution.Normal
 import Statistics.Distribution.Uniform
 
 import Conduit
@@ -67,7 +69,8 @@ main = do infiles <- getArgs
                                                     . fmap (\x -> if x <= 0 then 1.0e-10 else x)
                                                     . rebinH 10 . snd
 
-          let hs = M.unionsWith (M.unionWith M.union) $ map g fhs
+          let hs = M.filterWithKey (\k _ -> not $ "__1down" `isSuffixOf` k) $
+                        M.unionsWith (M.unionWith M.union) $ map g fhs
 
           let dataset = fmap (fmap round) $ hs M.! "nominal" M.! "data" :: Dataset
 
@@ -79,12 +82,12 @@ main = do infiles <- getArgs
 
           let sysPreds = fmap (M.intersectionWith (M.intersectionWith (zipWith (flip (/)))) nomH) sysHs
 
-          let shapeSysts = map (\(n, p) -> shapeParam n (logNormalDistr' 1.0 1.0) p) $ M.toList sysPreds
+          let shapeSysts = map (\(n, p) -> shapeParam n (normalDistr 1.0 1.0) p) $ M.toList sysPreds
           let normSysts = [ procNormParam (uniformDistr 1.0e-10 100.0) "HVTWHlvqq2000"
-                          , procNormParam (logNormalDistr' 1 0.3) "TTbar"
-                          , procNormParam (logNormalDistr' 1 0.3) "Wb"
-                          , procNormParam (logNormalDistr' 1 0.3) "Wc"
-                          , procNormParam (logNormalDistr' 1 0.3) "Wl"
+                          , procNormParam (normalDistr 1 0.3) "TTbar"
+                          , procNormParam (normalDistr 1 0.3) "Wb"
+                          , procNormParam (normalDistr 1 0.3) "Wc"
+                          , procNormParam (normalDistr 1 0.3) "Wl"
                           ]
 
           let systs = normSysts ++ shapeSysts 
@@ -107,5 +110,5 @@ main = do infiles <- getArgs
           withSystemRandom . asGenIO $
                 \gen -> chain trans c gen
                      =$ takeEveryC 20
-                     =$ takeC 1000
-                     $$ mapM_C (\(Chain _ ll xs _) -> putStrLn . showList' $ ll:xs)
+                     =$ takeC 100
+                     $$ mapM_C (\(Chain _ llhood xs _) -> putStrLn . showList' $ llhood:xs)

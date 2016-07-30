@@ -123,10 +123,10 @@ modelPoissonLLH ds m = M.foldr (+) 0 $ M.intersectionWith predHistLLH ds
                                      $ totalPrediction m
 
 
-modelLLH :: RealFloat a => Dataset -> Prediction -> [ModelParam] -> [a] -> a
-modelLLH ds hpred hparams params' = realToFrac $ priorLLH + poissLLH
+modelLLH :: Dataset -> Prediction -> [ModelParam] -> [Double] -> Double
+modelLLH ds hpred hparams params = trace ("priorLLH: " ++ show priorLLH) priorLLH + trace ("poissLLH: " ++ show poissLLH) poissLLH
     where
-        params = map realToFrac params'
+        nan = 0/0
         priorLLH = sum $ zipWithLen mpPrior hparams params
         hpred' = foldr ($) hpred (zipWithLen mpAlter hparams params)
-        poissLLH = if any (< 0.0) params then traceShow "LESS THAN 0" $ log 0.0 else modelPoissonLLH ds hpred'
+        poissLLH = if any (< 0.0) params then trace "LT 0" nan else trace "GT 0" $ modelPoissonLLH ds hpred'
