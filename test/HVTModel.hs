@@ -64,7 +64,7 @@ main = do infiles <- getArgs
               g (k, (Just m)) = let (procN, regN) = break (== '_') $ takeWhileEnd (/= '/') k
                                 in  flip M.map m $ M.singleton (ProcName procN)
                                                     . M.singleton (RegName regN)
-                                                    . fmap (\x -> if x < 0 then 1.0e-10 else x)
+                                                    . fmap (\x -> if x <= 0 then 1.0e-10 else x)
                                                     . rebinH 10 . snd
 
           let hs = M.unionsWith (M.unionWith M.union) $ map g fhs
@@ -80,7 +80,7 @@ main = do infiles <- getArgs
           let sysPreds = fmap (M.intersectionWith (M.intersectionWith (zipWith (flip (/)))) nomH) sysHs
 
           let shapeSysts = map (\(n, p) -> shapeParam n (normalDistr 1.0 1.0) p) $ M.toList sysPreds
-          let normSysts = [ procNormParam (uniformDistr (-10.0) 100.0) "HVTWHlvqq2000"
+          let normSysts = [ procNormParam (uniformDistr 0.0 100.0) "HVTWHlvqq2000"
                           , procNormParam (normalDistr 1 0.3) "TTbar"
                           , procNormParam (normalDistr 1 0.3) "Wb"
                           , procNormParam (normalDistr 1 0.3) "Wc"
@@ -107,5 +107,5 @@ main = do infiles <- getArgs
           withSystemRandom . asGenIO $
                 \gen -> chain trans c gen
                      =$ takeEveryC 20
-                     =$ takeC 10000
+                     =$ takeC 2000
                      $$ mapM_C (\(Chain _ ll xs _) -> putStrLn . showList' $ ll:xs)

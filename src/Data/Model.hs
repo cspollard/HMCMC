@@ -107,7 +107,7 @@ shapeParam name prior hshapes = ModelParam name (logDensity prior) f
 
 
 totalPrediction :: Prediction -> Process
-totalPrediction = M.foldr (M.intersectionWith addH) M.empty
+totalPrediction = M.foldr (M.unionWith addH) M.empty
 
 
 -- TODO!!!
