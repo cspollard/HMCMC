@@ -7,6 +7,9 @@ import qualified System.Random.MWC.Probability as MWC
 import Control.Monad.Trans.State.Strict (execStateT)
 
 import Statistics.Distribution.Poisson
+import Statistics.Distribution.LogNormal
+import Statistics.Distribution.Normal
+import Statistics.Distribution
 
 import Conduit
 
@@ -37,6 +40,7 @@ main = withSystemRandom . asGenIO $
           t = Target testLH Nothing
           testData = [1, 100, 25, 50]
           initPred = [1, 1, 1, 1]
+          ln = logNormalDistr' 50 20
           testLH xs = if any (<= 0) xs
-                         then (-1e100)
-                         else predHistLLH testData (fmap poisson xs)
+                         then log 0.0
+                         else predHistLLH testData (fmap poisson xs) + logDensity ln (sum xs)

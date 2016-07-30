@@ -25,4 +25,6 @@ for param in xs:
     print names[n], "median, variance: %.2f, %.2f" \
             % (np.median(param), np.var(param))
     stdout.flush()
+
+    plt.close()
     n += 1

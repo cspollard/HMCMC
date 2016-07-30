@@ -16,11 +16,11 @@ logNormalDistr m s = LND $ normalDistr m s
 logNormalDistr' :: Double -> Double -> LogNormalDistribution
 logNormalDistr' m s = LND $ normalDistr mu sigma
     where mu = log $ m*m / sqrt (s*s + m*m)
-          sigma = log $ 1 + (s*s / m*m)
+          sigma = sqrt . log $ 1 + (s*s / m*m)
 
 
 instance Distribution LogNormalDistribution where
-    cumulative (LND nd) = cumulative nd . exp 
+    cumulative (LND nd) = cumulative nd . log
 
 instance Mean LogNormalDistribution where
     mean (LND nd) = exp $ variance nd / 2 + mean nd
