@@ -34,7 +34,7 @@ chain transition = loop where
 
 main :: IO ()
 main = withSystemRandom . asGenIO $
-        \g -> chain (slice 1) c g =$ takeC 99999 =$ mapC (filter (`notElem` "|\"") . show) $$ mapM_C putStrLn
+        \g -> chain (metropolis 10) c g =$ takeC 99999 =$ mapC (filter (`notElem` "|\"") . show) $$ mapM_C putStrLn
 
     where c = Chain t (testLH initPred) initPred Nothing
           t = Target testLH Nothing
