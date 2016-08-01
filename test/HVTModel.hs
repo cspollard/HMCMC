@@ -176,10 +176,10 @@ main = do infiles <- getArgs
           -- TODO
           -- I think the signal normalization needs a different step
           -- size...
-          let trans = metropolis 0.005
+          let trans = metropolis 0.1
           -- let trans = slice 0.1
 
           withSystemRandom . asGenIO $
                 \gen -> chain trans c gen
-                     =$ (dropC 0 >> takeEveryC 100 =$ takeC 1000)
+                     =$ (dropC 0 >> takeEveryC 20 =$ takeC 10000)
                      $$ mapM_C (\(Chain _ lhood xs _) -> putStrLn . showList' . fmap show $ lhood:xs)

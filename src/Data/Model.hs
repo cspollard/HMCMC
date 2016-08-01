@@ -110,11 +110,13 @@ procNormParam prior n name = ModelParam (show name ++ "_norm") (logDensity prior
 
 
 procShapeParam :: Double -> Map RegName Hist -> Process -> Process
-procShapeParam x s p = M.differenceWith (\p' s' -> Just $ addH (scaleH x s') p') p s
+procShapeParam x s p = M.differenceWith f p s
+    where f p' s' = Just $ addH (scaleH x s') p'
 
 shapeParam :: ContDistr d => d -> String -> Map ProcName (Map RegName Hist) -> ModelParam
 shapeParam prior name hshapes = ModelParam name (logDensity prior) f
-    where f x p = M.differenceWith (\p' s' -> Just $ procShapeParam x s' p') p hshapes
+    where f x p = M.differenceWith (g x) p hshapes
+          g x p' s' = Just $ procShapeParam x s' p'
 
 
 totalPrediction :: Prediction -> TotalPrediction
