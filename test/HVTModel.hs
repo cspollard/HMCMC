@@ -87,9 +87,10 @@ main = do infiles <- getArgs
                           , procNormParam (normalDistr 0.0 0.3) "Wl"
                           ]
 
-          let systs = normSysts ++ filter (isInfixOf "MODEL" . mpName) shapeSysts 
+          -- let systs = normSysts ++ shapeSysts 
+          let systs = [head shapeSysts]
 
-          putStrLn . showList' $ "LL" : map mpName systs
+          putStrLn . showList' . ("LL" :) $ map mpName systs
 
           -- start every NP at 1.0.
           let initial = map (const 0.0) systs

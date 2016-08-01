@@ -43,6 +43,7 @@ zipWithLen f (a:as) (b:bs) = f a b : zipWithLen f as bs
 zipWithLen _ [] []         = []
 zipWithLen _ _ _           = error "zipping lists of different lengths"
 
+
 -- the log likelihood of a prediction histogram given a data histogram
 predHistLLH :: DataHist -> PredHist -> Double
 predHistLLH dh ph = sum $ zipWithLen logProbability ph dh
