@@ -148,8 +148,8 @@ main = do infiles <- getArgs
           let systHs = M.fromList $ map (\v -> (v, varHs v)) shapeNPs
 
           let nomHs = M.fromList $ map (\p -> (p, procHs p "nominal")) processes :: Prediction
-          -- let dataHs = M.fromList $ map (\r -> (r, fmap round $ regH r "data" "nominal")) regions :: Dataset
-          let dataHs = expectedData nomHs
+          let dataHs = M.fromList $ map (\r -> (r, fmap round $ regH r "data" "nominal")) regions :: Dataset
+          -- let dataHs = expectedData nomHs
 
           let sysDiffs = fmap (M.intersectionWith (M.intersectionWith (flip subH)) nomHs) systHs
 
@@ -181,5 +181,5 @@ main = do infiles <- getArgs
 
           withSystemRandom . asGenIO $
                 \gen -> chain trans c gen
-                     =$ (dropC 0 >> takeEveryC 20 =$ takeC 10000)
+                     =$ (dropC 5000 >> takeEveryC 20 =$ takeC 10000)
                      $$ mapM_C (\(Chain _ lhood xs _) -> putStrLn . showList' . fmap show $ lhood:xs)
