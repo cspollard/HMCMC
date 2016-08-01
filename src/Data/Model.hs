@@ -7,8 +7,6 @@
 
 module Data.Model where
 
-import Debug.Trace
-
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
 
@@ -106,16 +104,16 @@ alterProc f = M.adjust (fmap f)
 
 
 -- process normalization ModelParam
-procNormParam :: ContDistr d => d -> ProcName -> ModelParam
-procNormParam prior name = ModelParam (show name ++ "_norm") (logDensity prior)
-                                $ (\x -> alterProc (scaleH (1+x)) name)
+procNormParam :: ContDistr d => d -> Double -> ProcName -> ModelParam
+procNormParam prior n name = ModelParam (show name ++ "_norm") (logDensity prior)
+                                $ (\x -> alterProc (scaleH (1+n*x)) name)
 
 
 procShapeParam :: Double -> Map RegName Hist -> Process -> Process
 procShapeParam x s p = M.differenceWith (\p' s' -> Just $ addH (scaleH x s') p') p s
 
-shapeParam :: ContDistr d => String -> d -> Map ProcName (Map RegName Hist) -> ModelParam
-shapeParam name prior hshapes = ModelParam name (logDensity prior) f
+shapeParam :: ContDistr d => d -> String -> Map ProcName (Map RegName Hist) -> ModelParam
+shapeParam prior name hshapes = ModelParam name (logDensity prior) f
     where f x p = M.differenceWith (\p' s' -> Just $ procShapeParam x s' p') p hshapes
 
 
@@ -123,18 +121,18 @@ totalPrediction :: Prediction -> TotalPrediction
 totalPrediction = fmap toPred . M.foldr (M.unionWith addH) M.empty
 
 -- TODO!!!
--- expectedData :: Prediction -> Dataset
--- expectedData = fmap (fmap round) . totalPrediction
+expectedData :: Prediction -> Dataset
+expectedData = fmap (fmap $ round . poissonLambda) . totalPrediction
 
 -- the poisson likelihood of a model given the input data
 modelPoissonLLH :: Dataset -> Prediction -> Double
-modelPoissonLLH ds m = M.foldr (+) 0 $ M.intersectionWith predHistLLH (traceShowId ds)
-                                     $ traceShowId $ totalPrediction m
+modelPoissonLLH ds m = M.foldr (+) 0 $ M.intersectionWith predHistLLH ds
+                                     $ totalPrediction m
 
 
 modelLLH :: Dataset -> Prediction -> [ModelParam] -> [Double] -> Double
 modelLLH ds hpred hparams params = priorLLH + poissLLH
     where
-        priorLLH = traceShowId . trace "priorLLH" . sum . map traceShowId . trace "priorLLHs" $ zipWithLen mpPrior hparams params
+        priorLLH = sum $ zipWithLen mpPrior hparams params
         hpred' = foldr ($) hpred (zipWithLen mpAlter hparams params)
-        poissLLH = traceShowId . trace "poissLLH" $ modelPoissonLLH ds hpred'
+        poissLLH = modelPoissonLLH ds hpred'
