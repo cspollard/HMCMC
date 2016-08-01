@@ -87,7 +87,7 @@ main = do infiles <- getArgs
                           , procNormParam (normalDistr 0.0 0.3) "Wl"
                           ]
 
-          let systs = normSysts ++ take 0 shapeSysts 
+          let systs = normSysts ++ take 1 shapeSysts 
 
           putStrLn . showList' $ "LL" : map mpName systs
 
@@ -107,5 +107,5 @@ main = do infiles <- getArgs
 
           withSystemRandom . asGenIO $
                 \gen -> chain trans c gen
-                     =$ (dropC 5000 >> takeEveryC 50 =$ takeC 20000)
+                     =$ (dropC 10000 >> takeEveryC 50 =$ takeC 100000)
                      $$ mapM_C (\(Chain _ llhood xs _) -> putStrLn . showList' $ llhood:xs)
