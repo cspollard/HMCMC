@@ -85,7 +85,7 @@ shapeNPs = [ "EG_RESOLUTION_ALL__1up"
            , "EL_EFF_Iso_TotalCorrUncertainty__1up"
            , "EL_EFF_Reco_TotalCorrUncertainty__1up"
            , "EL_EFF_Trigger_TotalCorrUncertainty__1up"
-           , "EXTRAP__1up"
+           -- , "EXTRAP__1up"
            , "FATJET_JER__1up"
            , "FATJET_JMR__1up"
            , "FT_EFF_Eigen_B_0__1up"
@@ -112,9 +112,9 @@ shapeNPs = [ "EG_RESOLUTION_ALL__1up"
            , "MET_SoftTrk_ResoPara__1up"
            , "MET_SoftTrk_ResoPerp__1up"
            , "MET_SoftTrk_Scale__1up"
-           , "MODEL_TTbar_Herwig__1up"
-           , "MODEL_TTbar_aMcAtNlo__1up"
-           , "MODEL_TTbar_rad__1up"
+           -- , "MODEL_TTbar_Herwig__1up"
+           -- , "MODEL_TTbar_aMcAtNlo__1up"
+           -- , "MODEL_TTbar_rad__1up"
            , "MUONS_ID__1up"
            , "MUONS_MS__1up"
            , "MUONS_SCALE__1up"
@@ -163,7 +163,7 @@ main = do infiles <- getArgs
 
           let systs = normSysts ++ shapeSysts 
 
-          putStrLn . showList' . ("LL" :) $ map mpName systs
+          putStrLn . showList' . ("likelihood" :) $ map mpName systs
 
           -- start every NP at 0.0.
           let initial = map (const 0.0) systs
@@ -181,5 +181,5 @@ main = do infiles <- getArgs
 
           withSystemRandom . asGenIO $
                 \gen -> chain trans c gen
-                     =$ (dropC 10000 >> takeEveryC 20 =$ takeC 100000)
-                     $$ mapM_C (\(Chain _ llhood xs _) -> putStrLn . showList' . fmap show $ llhood:xs)
+                     =$ (dropC 0 >> takeEveryC 100 =$ takeC 1000)
+                     $$ mapM_C (\(Chain _ lhood xs _) -> putStrLn . showList' . fmap show $ lhood:xs)
