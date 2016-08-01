@@ -9,22 +9,22 @@ from sys import stdin, stdout
 names = map(str.strip, stdin.readline().split(","))
 xs = np.loadtxt(stdin, delimiter=',').transpose()
 
-n = 0
-for param in xs:
+for n in range(len(xs)):
+    param = xs[n]
+    name = names[n]
     hist, bins = np.histogram(param, bins=50)
     width = 0.7 * (bins[1] - bins[0])
     center = (bins[:-1] + bins[1:]) / 2
 
     fig = plt.figure()
-    fig.suptitle(names[n])
+    fig.suptitle(name)
 
     plt.bar(center, hist, align='center', width=width)
-    plt.savefig("param%03i.png" % n)
+    plt.savefig("%s.png" % name)
     plt.clf()
 
-    print names[n], "median, stddev: %.2f, %.2f" \
+    print name, "median, stddev: %.2f, %.2f" \
             % (np.median(param), np.std(param))
     stdout.flush()
 
     plt.close()
-    n += 1

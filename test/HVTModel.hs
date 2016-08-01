@@ -4,7 +4,7 @@
 
 module Main where
 
-import Data.List (isSuffixOf)
+import Data.List (isSuffixOf, isInfixOf)
 
 import System.Random.MWC.Probability (Gen)
 import qualified System.Random.MWC.Probability as MWC
@@ -80,14 +80,14 @@ main = do infiles <- getArgs
 
           let shapeSysts = map (\(n, p) -> shapeParam n standard p) $ M.toList sysDiffs
 
-          let normSysts = [ procNormParam (uniformDistr 0.0 100.0) "HVTWHlvqq2000"
+          let normSysts = [ procNormParam (uniformDistr (-100.0) 100.0) "HVTWHlvqq2000"
                           , procNormParam (normalDistr 0.0 0.3) "TTbar"
                           , procNormParam (normalDistr 0.0 0.3) "Wb"
                           , procNormParam (normalDistr 0.0 0.3) "Wc"
                           , procNormParam (normalDistr 0.0 0.3) "Wl"
                           ]
 
-          let systs = normSysts ++ take 1 shapeSysts 
+          let systs = normSysts ++ filter (isInfixOf "MODEL" . mpName) shapeSysts 
 
           putStrLn . showList' $ "LL" : map mpName systs
 
