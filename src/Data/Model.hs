@@ -105,7 +105,7 @@ alterProc f = M.adjust (fmap f)
 -- process normalization ModelParam
 procNormParam :: ContDistr d => d -> ProcName -> ModelParam
 procNormParam prior name = ModelParam (show name ++ "_norm") (logDensity prior)
-                                $ (\x -> alterProc (scaleH x) name)
+                                $ (\x -> alterProc (scaleH (1+x)) name)
 
 
 procShapeParam :: Double -> Map RegName Hist -> Process -> Process

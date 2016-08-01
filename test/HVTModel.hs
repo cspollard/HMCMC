@@ -79,19 +79,19 @@ main = do infiles <- getArgs
           let sysDiffs = fmap (M.intersectionWith (M.intersectionWith (flip subH)) nomPred) sysHs
 
           let shapeSysts = map (\(n, p) -> shapeParam n (normalDistr 0 1.0) p) $ M.toList sysDiffs
-          let normSysts = [ procNormParam (uniformDistr 1.0e-10 100.0) "HVTWHlvqq2000"
-                          , procNormParam (normalDistr 1.0 0.3) "TTbar"
-                          , procNormParam (normalDistr 1.0 0.3) "Wb"
-                          , procNormParam (normalDistr 1.0 0.3) "Wc"
-                          , procNormParam (normalDistr 1.0 0.3) "Wl"
+          let normSysts = [ procNormParam (uniformDistr 0.0 100.0) "HVTWHlvqq2000"
+                          , procNormParam (normalDistr 0.0 0.3) "TTbar"
+                          , procNormParam (normalDistr 0.0 0.3) "Wb"
+                          , procNormParam (normalDistr 0.0 0.3) "Wc"
+                          , procNormParam (normalDistr 0.0 0.3) "Wl"
                           ]
 
-          let systs = normSysts -- ++ shapeSysts 
+          let systs = normSysts ++ take 5 shapeSysts 
 
           putStrLn . showList' $ "LL" : map mpName systs
 
           -- start every NP at 1.0.
-          let initial = map (const 1.0) normSysts -- ++ map (const 0.0) shapeSysts
+          let initial = map (const 0.0) systs
 
           let f = modelLLH dataset nomPred systs :: [Double] -> Double
 
