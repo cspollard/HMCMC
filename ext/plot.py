@@ -22,8 +22,8 @@ for param in xs:
     plt.savefig("param%03i.png" % n)
     plt.clf()
 
-    print names[n], "median, variance: %.2f, %.2f" \
-            % (np.median(param), np.var(param))
+    print names[n], "median, stddev: %.2f, %.2f" \
+            % (np.median(param), np.std(param))
     stdout.flush()
 
     plt.close()

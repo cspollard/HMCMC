@@ -123,7 +123,6 @@ totalPrediction = fmap toPred . M.foldr (M.unionWith addH) M.empty
 -- expectedData :: Prediction -> Dataset
 -- expectedData = fmap (fmap round) . totalPrediction
 
-
 -- the poisson likelihood of a model given the input data
 modelPoissonLLH :: Dataset -> Prediction -> Double
 modelPoissonLLH ds m = M.foldr (+) 0 $ M.intersectionWith predHistLLH ds

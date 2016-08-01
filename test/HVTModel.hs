@@ -86,12 +86,12 @@ main = do infiles <- getArgs
                           , procNormParam (normalDistr 1.0 0.3) "Wl"
                           ]
 
-          let systs = normSysts ++ shapeSysts 
+          let systs = normSysts -- ++ shapeSysts 
 
           putStrLn . showList' $ "LL" : map mpName systs
 
           -- start every NP at 1.0.
-          let initial = map (const 1.0) normSysts ++ map (const 0.0) shapeSysts
+          let initial = map (const 1.0) normSysts -- ++ map (const 0.0) shapeSysts
 
           let f = modelLLH dataset nomPred systs :: [Double] -> Double
 
@@ -101,8 +101,8 @@ main = do infiles <- getArgs
           -- TODO
           -- I think the signal normalization needs a different step
           -- size...
-          let trans = metropolis 0.05
-          -- let trans = slice 1
+          let trans = metropolis 0.005
+          -- let trans = slice 10
 
           withSystemRandom . asGenIO $
                 \gen -> chain trans c gen
