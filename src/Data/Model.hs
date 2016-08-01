@@ -7,6 +7,8 @@
 
 module Data.Model where
 
+import Debug.Trace
+
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
 
@@ -125,13 +127,13 @@ totalPrediction = fmap toPred . M.foldr (M.unionWith addH) M.empty
 
 -- the poisson likelihood of a model given the input data
 modelPoissonLLH :: Dataset -> Prediction -> Double
-modelPoissonLLH ds m = M.foldr (+) 0 $ M.intersectionWith predHistLLH ds
-                                     $ totalPrediction m
+modelPoissonLLH ds m = M.foldr (+) 0 $ M.intersectionWith predHistLLH (traceShowId ds)
+                                     $ traceShowId $ totalPrediction m
 
 
 modelLLH :: Dataset -> Prediction -> [ModelParam] -> [Double] -> Double
 modelLLH ds hpred hparams params = priorLLH + poissLLH
     where
-        priorLLH = sum $ zipWithLen mpPrior hparams params
+        priorLLH = traceShowId . trace "priorLLH" . sum . map traceShowId . trace "priorLLHs" $ zipWithLen mpPrior hparams params
         hpred' = foldr ($) hpred (zipWithLen mpAlter hparams params)
-        poissLLH = modelPoissonLLH ds hpred'
+        poissLLH = traceShowId . trace "poissLLH" $ modelPoissonLLH ds hpred'

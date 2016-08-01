@@ -8,7 +8,6 @@ import Control.Monad.Trans.State.Strict (execStateT)
 
 import Statistics.Distribution.Poisson
 import Statistics.Distribution.LogNormal
-import Statistics.Distribution.Normal
 import Statistics.Distribution
 
 import Conduit
