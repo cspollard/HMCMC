@@ -4,7 +4,9 @@
 
 module Main where
 
-import Data.List (isSuffixOf, isInfixOf, dropWhileEnd)
+import Debug.Trace
+
+import Data.List (dropWhileEnd)
 
 import System.Random.MWC.Probability (Gen)
 import qualified System.Random.MWC.Probability as MWC
@@ -62,10 +64,10 @@ regions = [ "lvJ_1tag_0addtag_unblind_SR"
           , "lvJ_1tag_1paddtag_unblind_SR"
           , "lvJ_1tag_0addtag_unblind_lowMH"
           , "lvJ_2tag_0addtag_unblind_lowMH"
-          , "lvJ_1tag_1addtag_unblind_lowMH"
+          , "lvJ_1tag_1paddtag_unblind_lowMH"
           , "lvJ_1tag_0addtag_unblind_highMH"
           , "lvJ_2tag_0addtag_unblind_highMH"
-          , "lvJ_1tag_1addtag_unblind_highMH"
+          , "lvJ_1tag_1paddtag_unblind_highMH"
           ]
 
 processes :: [ProcName]
@@ -84,32 +86,29 @@ shapeNPs = ["EG_RESOLUTION_ALL__1up"]
 main :: IO ()
 main = do infiles <- getArgs
           let f Nothing = error "parse error."
-              f (Just m) = fmap (rebinH 10 . snd)
+              f (Just m) = fmap (rebinH 10 . snd) m
 
           let g k = let (procN, regN) = break (== '_') . takeWhileEnd (/= '/') . dropWhileEnd (/= '_') $ k
-                    in  (procN, init $ tail regN)
+                    in  (ProcName procN, RegName . init . tail $ regN)
 
-          fhs <- traverse (\f -> (f,) . decodeStrict <$> BS.readFile f) infiles
-                :: IO [((String, String), Maybe (Map String (String, Hist)))]
+          fhs <- traverse (\fn -> (fn,) . decodeStrict <$> BS.readFile fn) infiles
+                :: IO [(String, Maybe (Map String (String, Hist)))]
 
           
           let hs' = M.fromList $ map (\(ss, m) -> (g ss, f m)) fhs
 
-          let regH regname procname varname = hs' M.! (procname, regname) M.! varname)
+          let regH regname procname varname = traceShow (regname, procname, varname) $! hs' M.! (procname, regname) M.! varname
           let procHs procname varname = M.fromList [(regn, regH regn procname varname) | regn <- regions]
-          let varHs varname = M.fromList [(procn, procHs procn varname) | proc <- processes]
+          let varHs varname = M.fromList [(procn, procHs procn varname) | procn <- processes]
 
           let systHs = M.fromList $ map (\v -> (v, varHs v)) shapeNPs
+
           let nomHs = M.fromList $ map (\p -> (p, procHs p "nominal")) processes :: Prediction
-          let dataHs = M.fromlist $ map (\r -> (r, regH r "data" "nominal")) regions :: Dataset
+          let dataHs = M.fromList $ map (\r -> (r, fmap round $ regH r "data" "nominal")) regions :: Dataset
 
           let sysDiffs = fmap (M.intersectionWith (M.intersectionWith (flip subH)) nomHs) systHs
 
-          return ()
-
-{-
           let shapeSysts = map (\(n, p) -> shapeParam n standard p) $ M.toList sysDiffs
-
           let normSysts = [ procNormParam (uniformDistr (-100.0) 100.0) "HVTWHlvqq2000"
                           , procNormParam (normalDistr 0.0 0.3) "TTbar"
                           , procNormParam (normalDistr 0.0 0.3) "Wb"
@@ -117,18 +116,17 @@ main = do infiles <- getArgs
                           , procNormParam (normalDistr 0.0 0.3) "Wl"
                           ]
 
-          -- let systs = normSysts ++ shapeSysts 
-          let systs = [head shapeSysts]
+          let systs = normSysts ++ shapeSysts 
 
           putStrLn . showList' . ("LL" :) $ map mpName systs
 
-          -- start every NP at 1.0.
+          -- start every NP at 0.0.
           let initial = map (const 0.0) systs
 
-          let f = modelLLH dataset nomPred systs :: [Double] -> Double
+          let llh = modelLLH dataHs nomHs systs :: [Double] -> Double
 
-          let t = Target f Nothing
-          let c = Chain t (f initial) initial Nothing
+          let t = Target llh Nothing
+          let c = Chain t (llh initial) initial Nothing
 
           -- TODO
           -- I think the signal normalization needs a different step
@@ -140,4 +138,3 @@ main = do infiles <- getArgs
                 \gen -> chain trans c gen
                      =$ (dropC 10000 >> takeEveryC 50 =$ takeC 100000)
                      $$ mapM_C (\(Chain _ llhood xs _) -> putStrLn . showList' $ llhood:xs)
--}
