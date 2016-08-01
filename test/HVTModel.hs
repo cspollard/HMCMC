@@ -139,8 +139,6 @@ main = do infiles <- getArgs
           fhs <- traverse (\fn -> (fn,) . decodeStrict <$> BS.readFile fn) infiles
                 :: IO [(String, Maybe (Map String (String, Hist)))]
 
-          print . fmap M.keys . snd . head $ fhs
-
           let hs' = M.fromList $ map (\(ss, m) -> (g ss, f m)) fhs
 
           let regH regname procname varname = hs' M.! (procname, regname) M.! varname
@@ -156,7 +154,7 @@ main = do infiles <- getArgs
           let sysDiffs = fmap (M.intersectionWith (M.intersectionWith (flip subH)) nomHs) systHs
 
           let shapeSysts = map (\(n, p) -> shapeParam standard n p) $ M.toList sysDiffs
-          let normSysts = [ procNormParam (uniformDistr (-100.0) 100.0) "HVTWHlvqq2000"
+          let normSysts = [ procNormParam (uniformDistr (-100.0) 100.0) 1.0 "HVTWHlvqq2000"
                           , procNormParam standard 0.3 "TTbar"
                           , procNormParam standard 0.3 "Wb"
                           , procNormParam standard 0.2 "Wc"
