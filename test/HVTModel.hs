@@ -4,7 +4,7 @@
 
 module Main where
 
-import Data.List (isSuffixOf, isInfixOf)
+import Data.List (isSuffixOf, isInfixOf, dropWhileEnd)
 
 import System.Random.MWC.Probability (Gen)
 import qualified System.Random.MWC.Probability as MWC
@@ -56,28 +56,58 @@ takeEveryC n = do dropC (n-1)
 showList' :: Show a => [a] -> String
 showList' = filter (flip notElem ("[]" :: String)) . show
 
+regions :: [RegName]
+regions = [ "lvJ_1tag_0addtag_unblind_SR"
+          , "lvJ_2tag_0addtag_unblind_SR"
+          , "lvJ_1tag_1paddtag_unblind_SR"
+          , "lvJ_1tag_0addtag_unblind_lowMH"
+          , "lvJ_2tag_0addtag_unblind_lowMH"
+          , "lvJ_1tag_1addtag_unblind_lowMH"
+          , "lvJ_1tag_0addtag_unblind_highMH"
+          , "lvJ_2tag_0addtag_unblind_highMH"
+          , "lvJ_1tag_1addtag_unblind_highMH"
+          ]
+
+processes :: [ProcName]
+processes  = [ "TTbar"
+             , "Wb"
+             , "Wc"
+             , "Wl"
+             , "stopWt"
+             , "stopt"
+             , "HVTWHlvqq2000" 
+             ]
+
+shapeNPs :: [String]
+shapeNPs = ["EG_RESOLUTION_ALL__1up"]
+
 main :: IO ()
 main = do infiles <- getArgs
+          let f Nothing = error "parse error."
+              f (Just m) = fmap (rebinH 10 . snd)
+
+          let g k = let (procN, regN) = break (== '_') . takeWhileEnd (/= '/') . dropWhileEnd (/= '_') $ k
+                    in  (procN, init $ tail regN)
+
           fhs <- traverse (\f -> (f,) . decodeStrict <$> BS.readFile f) infiles
-                :: IO [(String, Maybe (Map String (String, Hist)))]
+                :: IO [((String, String), Maybe (Map String (String, Hist)))]
 
-          let g (_, Nothing)  = error "failed parse."
-              g (k, (Just m)) = let (procN, regN) = break (== '_') $ takeWhileEnd (/= '/') k
-                                in  flip M.map m $ M.singleton (ProcName procN)
-                                                    . M.singleton (RegName regN)
-                                                    . rebinH 10 . snd
+          
+          let hs' = M.fromList $ map (\(ss, m) -> (g ss, f m)) fhs
 
-          let hs = M.filterWithKey (\k _ -> not $ "__1down" `isSuffixOf` k) $
-                        M.unionsWith (M.unionWith M.union) $ map g fhs
+          let regH regname procname varname = hs' M.! (procname, regname) M.! varname)
+          let procHs procname varname = M.fromList [(regn, regH regn procname varname) | regn <- regions]
+          let varHs varname = M.fromList [(procn, procHs procn varname) | proc <- processes]
 
-          let dataset = fmap (fmap round) $ hs M.! "nominal" M.! "data" :: Dataset
+          let systHs = M.fromList $ map (\v -> (v, varHs v)) shapeNPs
+          let nomHs = M.fromList $ map (\p -> (p, procHs p "nominal")) processes :: Prediction
+          let dataHs = M.fromlist $ map (\r -> (r, regH r "data" "nominal")) regions :: Dataset
 
-          let nomPred = M.delete "data" $ hs M.! "nominal" :: Prediction
+          let sysDiffs = fmap (M.intersectionWith (M.intersectionWith (flip subH)) nomHs) systHs
 
-          let sysHs = M.delete "nominal" hs
+          return ()
 
-          let sysDiffs = fmap (M.intersectionWith (M.intersectionWith (flip subH)) nomPred) sysHs
-
+{-
           let shapeSysts = map (\(n, p) -> shapeParam n standard p) $ M.toList sysDiffs
 
           let normSysts = [ procNormParam (uniformDistr (-100.0) 100.0) "HVTWHlvqq2000"
@@ -110,3 +140,4 @@ main = do infiles <- getArgs
                 \gen -> chain trans c gen
                      =$ (dropC 10000 >> takeEveryC 50 =$ takeC 100000)
                      $$ mapM_C (\(Chain _ llhood xs _) -> putStrLn . showList' $ llhood:xs)
+-}
